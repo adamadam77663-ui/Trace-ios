@@ -1,39 +1,51 @@
 <#
 ================================================================
-  Download-Music.ps1  —  YouTube -> MP3 podla kapiel
+  Download-Music.ps1  —  YouTube -> MP3, VSETKO podla ALBUMOV
 ================================================================
   Co to robi:
-    - Pre kazdu kapelu vyhlada na YouTube a stiahne TOP skladby
-    - Ulozi MP3 (320 kbps) do priecinka:  Hudba\<Kapela>\
-    - Vlozi ID3 metadata (interpret, nazov) + obal (thumbnail)
-    - Preskakuje uz stiahnute (da sa spustit viackrat)
+    - Pre kazdu kapelu stiahne CO NAJVIAC dostupnych skladieb
+    - Roztriedi ich do priecinkov podla ALBUMU (z metadat YouTube)
+        Hudba\<Kapela>\<Album>\01 - Nazov.mp3
+      Skladby bez albumu idu do  ...\<Kapela>\_Singly\
+    - MP3 (320 kbps) + ID3 metadata (interpret, album, cislo) + obal
+    - Jeden spolocny archiv stiahnutych -> da sa spustit znova
+      a dotiahne len to, co este chyba (nesahuje znova existujuce)
+    - Preskakuje >15 min videa (full-album ripy / mixy), aby si
+      dostal jednotlive skladby, nie jeden velky subor
 
-  POTREBUJES (jednorazovo nainstalovat na PC):
+  POTREBUJES (jednorazovo na PC):
     1) yt-dlp   ->  winget install yt-dlp
-                    alebo: https://github.com/yt-dlp/yt-dlp/releases
     2) ffmpeg   ->  winget install Gyan.FFmpeg
-                    (treba na konverziu do MP3 a vkladanie obalu)
 
   SPUSTENIE:
-    Otvor PowerShell v priecinku s tymto suborom a napis:
-        ./Download-Music.ps1
-    Ak Windows blokuje skripty, najprv:
-        Set-ExecutionPolicy -Scope Process Bypass
+    Set-ExecutionPolicy -Scope Process Bypass
+    ./Download-Music.ps1
+
+  PRE CLAUDE CODE NA PC:
+    - Co uz je stiahnute vidis v subore:  Hudba\.stiahnute-archiv.txt
+      (kazdy riadok = jedno video, ktore sa preskoci)
+    - Struktura je  Hudba\<Kapela>\<Album>\NN - Nazov.mp3
+    - Skript je idempotentny: pokojne ho spusti znova.
 ================================================================
 #>
 
 # ---- NASTAVENIA ------------------------------------------------
-# Kolko skladieb na kapelu (TOP vysledky z vyhladavania)
-$PocetNaKapelu = 8
+# Horny limit skladieb na kapelu (poistka proti nekonecnu).
+# Nastav vyssie ak chces naozaj "vsetko" (napr. 500).
+$MaxNaKapelu = 200
+
+# Preskocit videa dlhsie ako X sekund (full-album ripy, mixy, lives).
+# 900 = 15 min.  Daj 0 ak chces nechat vsetko.
+$MaxDlzkaSek = 900
 
 # Kam ukladat
 $Cielovy = Join-Path $PSScriptRoot "Hudba"
 
-# Kvalita MP3 (0 = najlepsia VBR, alebo "320K")
+# Kvalita MP3
 $Kvalita = "320K"
 # ----------------------------------------------------------------
 
-# Zoznam kapiel (52). Mozes pridat/ubrat riadky.
+# Zoznam kapiel (52).
 $Kapely = @(
     "BillyBio",
     "Iron Reagan",
@@ -71,7 +83,7 @@ $Kapely = @(
     "Sick of It All",
     "Destruction",
     "Massacra",
-    "Leftover Crack",
+    "Lessa Punk",
     "Soulfly",
     "Dimmu Borgir",
     "Root (band)",
@@ -106,11 +118,15 @@ if (-not (Test-Tool "ffmpeg")) {
 }
 
 New-Item -ItemType Directory -Force -Path $Cielovy | Out-Null
+$Archiv = Join-Path $Cielovy ".stiahnute-archiv.txt"
+
+# Filter na dlzku (preskoci dlhe full-album videa)
+$MatchFilter = if ($MaxDlzkaSek -gt 0) { "duration < $MaxDlzkaSek" } else { "" }
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host " Stahujem $($Kapely.Count) kapiel -> $Cielovy" -ForegroundColor Cyan
-Write-Host " $PocetNaKapelu skladieb na kapelu, MP3 $Kvalita" -ForegroundColor Cyan
+Write-Host " Triedim podla albumov, max $MaxNaKapelu skladieb/kapela" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 $i = 0
@@ -119,32 +135,39 @@ foreach ($kapela in $Kapely) {
     Write-Host ""
     Write-Host "[$i/$($Kapely.Count)] $kapela" -ForegroundColor Green
 
-    # Bezpecny nazov priecinka (odstrani neplatne znaky)
+    # Bezpecny nazov priecinka kapely (album riesi yt-dlp z metadat)
     $bezpecny = ($kapela -replace '[\\/:*?"<>|]', '').Trim()
     $priecinok = Join-Path $Cielovy $bezpecny
     New-Item -ItemType Directory -Force -Path $priecinok | Out-Null
 
-    # ytsearchN: -> vezme N najlepsich vysledkov pre dany dotaz
-    $dotaz = "ytsearch$PocetNaKapelu`:$kapela"
+    # ytsearchN: vezme az N vysledkov. Hladame oficialne audio.
+    $dotaz = "ytsearch$MaxNaKapelu`:$kapela"
 
-    yt-dlp `
-        --extract-audio `
-        --audio-format mp3 `
-        --audio-quality $Kvalita `
-        --embed-thumbnail `
-        --embed-metadata `
-        --add-metadata `
-        --parse-metadata "%(artist,uploader)s:%(meta_artist)s" `
-        --download-archive (Join-Path $priecinok ".stiahnute.txt") `
-        --no-overwrites `
-        --ignore-errors `
-        --no-playlist `
-        --output (Join-Path $priecinok "%(title)s.%(ext)s") `
-        $dotaz
+    # Sablona vystupu: <Kapela>\<Album|_Singly>\NN - Nazov.mp3
+    $sablona = Join-Path $priecinok "%(album|_Singly)s\%(track_number|0)s - %(track|title)s.%(ext)s"
+
+    $args = @(
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "--audio-quality", $Kvalita,
+        "--embed-thumbnail",
+        "--embed-metadata",
+        "--add-metadata",
+        "--download-archive", $Archiv,
+        "--no-overwrites",
+        "--ignore-errors",
+        "--no-playlist",
+        "--output", $sablona
+    )
+    if ($MatchFilter -ne "") { $args += @("--match-filter", $MatchFilter) }
+    $args += $dotaz
+
+    yt-dlp @args
 }
 
 Write-Host ""
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host " HOTOVO. Subory su v: $Cielovy" -ForegroundColor Cyan
-Write-Host " Skript mozes spustit znova - stiahne len nove." -ForegroundColor Cyan
+Write-Host " Archiv stiahnutych: $Archiv" -ForegroundColor Cyan
+Write-Host " Skript mozes spustit znova - dotiahne len nove." -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
