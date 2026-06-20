@@ -167,7 +167,7 @@
   <div class="head">
     <div class="brand">
       <span class="logo">TRA<b>CE</b></span>
-      <span class="ver">v0.3 · offline forensics</span>
+      <span class="ver">v0.4 · offline forensics</span>
     </div>
     <div class="tagline">Vygeneruj si na iPhone <b>sysdiagnose</b>, hoď ho sem. Hľadá verejne známe indikátory spyware (Pegasus, Predator a spol.) a podozrivé vzory v systémových logoch.</div>
     <span class="privacy"><span class="dot"></span> 100&nbsp;% beží v tvojom prehliadači — nič sa nikam nenahráva</span>
@@ -217,8 +217,8 @@
       <div class="sub">Zadáš dáta z Nastavení (Batéria, Mobilné dáta, povolenia) a nájde appky čo sa správajú ako spyware — bez podpisov, len podľa správania</div>
     </div>
     <div class="drop" id="netOpen" style="padding:18px;margin-top:12px">
-      <div class="big">🌐 Modul 10 · Sieťová analýza (HAR)</div>
-      <div class="sub">Nahráš HAR / network log a nájde beaconing (pravidelnú C2 komunikáciu) a auto-generované domény</div>
+      <div class="big">🌐 Modul 10 · Sieťová analýza (voliteľné, pre pokročilých)</div>
+      <div class="sub">Nepotrebuješ ho na bežnú kontrolu! Domény a spojenia ti analyzujem <b>automaticky z archívu</b> (krok 08, bez počítača). Tento modul je navyše — pre HAR/sieťový log, ak si ho zachytíš.</div>
     </div>
   </div>
 
@@ -276,13 +276,19 @@
     <p class="desc" style="color:var(--muted);font-size:13px;border-left:2px solid var(--line);padding-left:10px;margin-bottom:14px">
       Hľadá dve veci čo spyware prezradia: <b>beaconing</b> — pravidelnú „tep" komunikáciu v presných intervaloch, a <b>vysokú entropiu domén</b> — náhodne vyzerajúce adresy aké generuje malvér. Pracuje s HAR exportom alebo textovým logom domén.
     </p>
-    <details class="howto"><summary>Ako spraviť HAR / sieťový záznam</summary><div class="body">
+    <details class="howto" open><summary>📱 Ako zachytiť sieťové dáta priamo na iPhone (bez počítača)</summary><div class="body">
+      <p style="margin-top:0">Najprv: <b>toto väčšinou netreba</b> — domény a spojenia ti vyťahujem automaticky zo sysdiagnose (krok 08). Ak chceš sledovať živú premávku appiek, na iPhone to zvládnu tieto appky z App Store (fungujú ako lokálny záznamník cez VPN profil, nič sa neposiela von):</p>
+      <ul style="padding-left:18px">
+        <li><b>HTTP Catcher</b> — zachytí spojenia appiek, vie exportovať log.</li>
+        <li><b>Stream</b> (od TigerVPN) / <b>Thor</b> — on-device HTTPS sniffer.</li>
+        <li><b>Proxyman</b> (má aj iOS verziu) — zachytí premávku a exportuje.</li>
+      </ul>
       <ol>
-        <li>Na počítači otvor službu v prehliadači, daj <code>F12 → Network</code>, nechaj chvíľu bežať.</li>
-        <li>Pravý klik v zozname požiadaviek → <b>Save all as HAR</b>.</li>
-        <li>Pre premávku celého telefónu použiješ proxy ako <b>Proxyman</b> alebo <b>Charles</b> (zachytí všetky appky) a exportuješ HAR.</li>
-        <li>Nahraj ten súbor sem.</li>
+        <li>Nainštaluj jednu z appiek, spusti zachytávanie, chvíľu bežne používaj telefón.</li>
+        <li>Zastav a daj <b>Export / Share</b> → ulož do <b>Súborov</b> (HAR, JSON alebo textový log).</li>
+        <li>Nahraj ten súbor sem nižšie.</li>
       </ol>
+      <p style="color:var(--faint);font-size:12px">Tip: aj obyčajný <b>textový zoznam domén</b> (jedna na riadok) tu funguje — nemusí to byť presne HAR.</p>
     </div></details>
     <div class="drop" id="netDrop" style="margin-top:14px">
       <div class="ico">🌐</div>
@@ -610,6 +616,66 @@ Engines.timeline = (files) => {
   return {events:events.slice(0,40)};
 };
 
+// 08 — domains & connections harvested straight from the sysdiagnose logs
+// (runs on mobile from the uploaded archive — no PC / HAR capture needed)
+Engines.connections = (files) => {
+  const hosts={};
+  const urlRe=/\bhttps?:\/\/([a-z0-9.-]+)/gi;
+  const tsRe=/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/;
+  for(const [name,text] of files){
+    if(!text || text.length>3000000) continue;
+    const isNet=/datausage|networkstatistics|networkext|netusage|dns|tcp|connection|http/i.test(name);
+    if(!isNet && text.indexOf("http")<0) continue;
+    let m, c=0;
+    while((m=urlRe.exec(text)) && c<5000){
+      let h=m[1].toLowerCase().replace(/\.+$/,"");
+      const parts=h.split("."); if(parts.length<2) continue;
+      const tld=parts[parts.length-1];
+      if(tld.length<2||tld.length>24||/[^a-z]/.test(tld)) continue;
+      const rec=hosts[h]=hosts[h]||{count:0,times:[]};
+      rec.count++;
+      const ls=text.lastIndexOf("\n",m.index)+1, le=text.indexOf("\n",m.index);
+      const tm=text.slice(ls, le<0?text.length:le).match(tsRe);
+      if(tm){ const t=Date.parse(tm[1].replace(" ","T")); if(!isNaN(t)) rec.times.push(t); }
+      c++;
+    }
+  }
+  const entries=Object.entries(hosts);
+  if(!entries.length) return {nodata:true};
+  const findings=[], list=[];
+  for(const [host,rec] of entries){
+    const label=sld(host), ent=entropyStr(label), bs=beacon(rec.times);
+    let risk=0, reasons=[];
+    if(DOMAIN_IOCS.some(t=>t&&host.includes(t))){ risk+=60; reasons.push("zhoda so známou IOC doménou zo zoznamu spyware"); }
+    if(bs&&bs.cv<0.2&&bs.count>=5){ risk+=50; reasons.push(`pravidelný „tep“ približne každých ${bs.mean.toFixed(0)} s (${bs.count}×) — taký rovnomerný rytmus je typický pre spyware spojenie so serverom`); }
+    else if(bs&&bs.cv<0.4&&bs.count>=6){ risk+=20; reasons.push(`polo-pravidelná opakovaná komunikácia (${bs.count}×)`); }
+    if(ent>3.4&&label.length>=10){ risk+=30; reasons.push(`náhodne vyzerajúci názov domény (entropia ${ent.toFixed(2)}) — môže ísť o automaticky generovanú adresu`); }
+    if(risk>=50) findings.push({name:host,sev:"hit",meta:reasons.join(" · ")});
+    else if(risk>=20) findings.push({name:host,sev:"rev",meta:reasons.join(" · ")});
+    list.push([host,rec.count]);
+  }
+  list.sort((a,b)=>b[1]-a[1]);
+  return {findings, list:list.slice(0,40), hostCount:entries.length};
+};
+
+// 09 — Wi-Fi networks the phone knew / joined (honest "where have I been" hint)
+Engines.wifi = (files) => {
+  const wifiFiles=files.filter(([n])=>/wifi|airport|wireless|known.?network/i.test(n));
+  if(!wifiFiles.length) return {nodata:true};
+  const ssids=new Set();
+  for(const [name,text] of wifiFiles){
+    if(!text || text.length>3000000) continue;
+    let m;
+    const re1=/SSID_STR<\/key>\s*<string>([^<]{1,40})<\/string>/gi;
+    const re2=/\bSSID(?:_STR)?["'\s]*[:=]["'\s]*([^"'\n,;{}<>]{1,40})/gi;
+    while((m=re1.exec(text))){ const v=m[1].trim(); if(v) ssids.add(v); }
+    while((m=re2.exec(text))){ const v=m[1].trim(); if(v) ssids.add(v); }
+  }
+  const list=[...ssids].filter(s=>s && s.toLowerCase()!=="ssid" && s.toLowerCase()!=="ssid_str"
+    && !/^0x/i.test(s) && !/^[0-9a-f]{2}([:-][0-9a-f]{2}){5}$/i.test(s) && s.length>1).slice(0,80);
+  return {findings:[], list};
+};
+
 /* ════════════════ console UI ════════════════ */
 const consoleEl=$("#console");
 function line(cls, tag, msg){
@@ -637,7 +703,9 @@ async function run(files){
     {no:"05",key:"processes",name:"Bežiace procesy",fn:Engines.processes},
     {no:"06",key:"profiles",name:"Konfiguračné profily",fn:Engines.profiles},
     {no:"07",key:"network",name:"Sieťové artefakty",fn:Engines.network},
-    {no:"08",key:"timeline",name:"Časová os udalostí",fn:Engines.timeline},
+    {no:"08",key:"connections",name:"Domény a spojenia",fn:Engines.connections},
+    {no:"09",key:"wifi",name:"Wi-Fi siete a miesta",fn:Engines.wifi},
+    {no:"10",key:"timeline",name:"Časová os udalostí",fn:Engines.timeline},
   ];
 
   const results={};
@@ -659,13 +727,31 @@ async function run(files){
   await sleep(300);
   line("run","›","Analýza dokončená. Generujem report.");
   await sleep(400);
-  render(results, files.length);
+  render(results, files.length, files);
 }
 
 /* ════════════════ report rendering ════════════════ */
-function render(R, fileCount){
+function render(R, fileCount, files){
+  files=files||[];
   let totalHits=0, totalRev=0;
   for(const k in R){ const f=R[k].findings||[]; totalHits+=f.filter(x=>x.sev==="hit").length; totalRev+=f.filter(x=>x.sev==="rev").length; }
+
+  // device info + IP addresses pulled from the logs (mobile, no PC)
+  const devInfo=extractDeviceInfo(files);
+  const ips=extractIPs(files);
+  const digest=buildDigest(R, devInfo, ips, files);
+  const fullPrompt=`Som laik a kontrolujem si iPhone na spyware/sledovanie. Nižšie sú výsledky z forenzného nástroja (TRACE) z môjho sysdiagnose. Sprav mi prosím profesionálny, ale ľahko pochopiteľný report v slovenčine.
+
+POŽIADAVKY:
+- Štruktúrované sekcie podľa typu dát.
+- Každý technický pojem a skratku vždy vysvetli jednoducho (žiadne skratky bez vysvetlenia).
+- Pri doménach/IP: čo je ich cieľ/služba, ako prebieha komunikácia a čo sa z toho dá vyčítať.
+- Vysvetli chyby, varovania a anomálie; sieťové chyby (DNS, TLS, timeouty); podozrivé vzory (opakované requesty, neznáme domény).
+- Uveď aj, ktoré údaje by mohol niekto zneužiť proti mne a ako sa chrániť.
+- Na konci: jasné zhrnutie „čo sa deje", zoznam hlavných zistení a odporúčania. Bez zbytočnej paniky, ale úprimne.
+
+DÁTA Z ANALÝZY:
+${digest}`;
 
   let vClass,vMark,vTitle,vSub;
   if(totalHits>0){
@@ -685,6 +771,24 @@ function render(R, fileCount){
     <div class="score"><span>súborov: <b>${fileCount}</b></span><span>IOC zhody: <b>${totalHits}</b></span><span>na kontrolu: <b>${totalRev}</b></span></div>
   </div>`;
 
+  // headline AI button — builds a full professional-report prompt and opens ChatGPT
+  html+=`<div style="background:linear-gradient(135deg,#10231d,#0f1d22);border:1px solid #1f5a47;border-radius:14px;padding:16px;margin-bottom:18px">
+    <div style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:4px">🤖 Chceš to vysvetliť ako profík?</div>
+    <div style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:4px">Toto tlačidlo otvorí ChatGPT s pripravenou otázkou aj s tvojimi dátami — vysvetlí každý nález, domény, IP a riziká po slovensky, krok po kroku. Funguje na mobile, zadarmo.</div>
+    ${gptBtn(fullPrompt,"🤖 Vysvetli mi celý výsledok cez ChatGPT")}
+  </div>`;
+
+  // device info box
+  if(devInfo.model||devInfo.os||devInfo.name){
+    html+=`<div style="border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.7">
+      <b style="color:var(--text)">📱 Zariadenie zo záznamu:</b><br>
+      ${devInfo.name?`názov: <b style="color:var(--text)">${escapeHtml(devInfo.name)}</b><br>`:""}
+      ${devInfo.model?`model: <b style="color:var(--text)">${escapeHtml(devInfo.model)}</b> &nbsp; `:""}
+      ${devInfo.os?`iOS: <b style="color:var(--text)">${escapeHtml(devInfo.os)}</b> &nbsp; `:""}
+      ${devInfo.build?`build: <b style="color:var(--text)">${escapeHtml(devInfo.build)}</b>`:""}
+    </div>`;
+  }
+
   // plain-language legend so the report is readable without forensic knowledge
   html+=`<div style="border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:var(--muted);line-height:1.7">
     <b style="color:var(--text)">Ako tomuto reportu rozumieť:</b><br>
@@ -701,6 +805,8 @@ function render(R, fileCount){
     processes:"Po ľudsky: kontroluje, či nejaký program nebeží zo skrytého alebo dočasného priečinka, kam bežné appky nepatria.",
     profiles:"Po ľudsky: „profil” je nastavenie, ktoré dokáže telefón sledovať alebo ovládať (napr. od firmy či školy). Vypíše tie, ktoré nie sú priamo od Apple.",
     network:"Po ľudsky: pozerá, či telefón nekomunikoval so servermi známymi pre spyware.",
+    connections:"Po ľudsky: vytiahne z logov všetky webové adresy/servery, s ktorými telefón komunikoval, a hľadá podozrivý vzor — napr. spojenie, ktoré sa ozýva pravidelne ako hodiny (to robia spyware servery). Beží priamo z tvojho archívu, žiadny počítač netreba.",
+    wifi:"Po ľudsky: vypíše názvy Wi-Fi sietí, ktoré tvoj telefón pozná alebo sa k nim pripájal. Naznačuje to miesta, kde si bol. Skontroluj, či niektorú sieť nepoznáš.",
     timeline:"Po ľudsky: poskladá časy udalostí (hlavne pádov) za sebou, aby bolo vidno, čo sa dialo a kedy."
   };
 
@@ -711,9 +817,11 @@ function render(R, fileCount){
     processes:{no:"05",name:"Bežiace procesy",desc:"Procesy bežiace z dočasných alebo skrytých umiestnení (napr. /private/var/tmp) sú podozrivé — legitímne appky tam nebežia.",needs:"súbor <code>ps.txt</code> (zoznam bežiacich procesov). Je vo vnútri plného sysdiagnose archívu."},
     profiles:{no:"06",name:"Konfiguračné profily",desc:"MDM a profily tretích strán môžu monitorovať alebo riadiť zariadenie. Vypíše profily, ktoré nie sú od Apple.",needs:"konfiguračné profily (<code>.mobileconfig</code>). Ak nemáš nainštalované žiadne firemné/MDM profily, je úplne normálne že tu nič nie je."},
     network:{no:"07",name:"Sieťové artefakty",desc:"Kontroluje dátové/sieťové databázy proti známym IOC doménam a procesom.",needs:"databázy <code>datausage.sqlite</code> / <code>networkstatistics</code> so sieťovou aktivitou appiek. Sú vo vnútri plného sysdiagnose archívu."},
-    timeline:{no:"08",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi, aby sa dali korelovať podozrivé veci v čase.",needs:"crash logy s časovými značkami (toto si nahral)."}
+    connections:{no:"08",name:"Domény a spojenia",desc:"Z logov vytiahne všetky servery/domény, s ktorými telefón komunikoval, a hľadá podozrivé vzory: pravidelný „beaconing“ (rovnomerné ozývanie sa serveru) a náhodne vyzerajúce auto-generované domény. Beží automaticky z archívu — bez počítača.",needs:"akékoľvek logy s adresami (väčšina sysdiagnose ich obsahuje)."},
+    wifi:{no:"09",name:"Wi-Fi siete a miesta",desc:"Vypíše Wi-Fi siete, ktoré telefón pozná alebo sa k nim pripojil — náznak miest, kde si sa pohyboval. Pomáha všimnúť si neznámu/cudziu sieť.",needs:"Wi-Fi logy zo sysdiagnose (priečinok <code>WiFi/</code>). Sú vo vnútri plného archívu."},
+    timeline:{no:"10",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi, aby sa dali korelovať podozrivé veci v čase.",needs:"crash logy s časovými značkami (toto si nahral)."}
   };
-  const order=["signatures","shutdown","crashes","processes","profiles","network","timeline"];
+  const order=["signatures","shutdown","crashes","processes","profiles","network","connections","wifi","timeline"];
 
   for(const key of order){
     const m=meta[key], res=R[key]||{};
@@ -737,11 +845,19 @@ function render(R, fileCount){
       if(res.events.length){
         body+=`<div class="tl">`+res.events.map(e=>`<div class="t-row"><span class="t-time">${e.t}</span><span class="t-desc">${e.d}</span></div>`).join("")+`</div>`;
       } else body+=`<div style="color:var(--faint);font-size:12px">Žiadne časované udalosti.</div>`;
+    } else if(key==="wifi"){
+      if(res.list&&res.list.length){
+        body+=`<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.6">Wi-Fi siete, ktoré tvoj telefón pozná alebo sa k nim pripájal. Názvy naznačujú <b style="color:var(--text)">miesta, kde si bol</b> (domov, práca, kaviarne…). <b style="color:var(--text)">Skontroluj, či niektorú nepoznáš</b> — cudzia sieť môže (ale nemusí) byť pokus o odpočúvanie.</div>`;
+        body+=`<div class="tl">`+res.list.map(s=>`<div class="t-row"><span class="t-desc">📶 ${escapeHtml(s)}</span></div>`).join("")+`</div>`;
+        body+=gptBtn(`Toto sú názvy Wi-Fi sietí z môjho iPhonu: ${res.list.slice(0,40).join(", ")}. Som laik. Sú medzi nimi nejaké, ktoré vyzerajú podozrivo alebo ako odpočúvacie/falošné siete? Vysvetli po slovensky a jednoducho.`,"🤖 Spýtať sa ChatGPT na tieto siete");
+      } else body+=`<div style="color:var(--faint);font-size:12px">Nenašli sa čitateľné názvy Wi-Fi sietí.</div>`;
     } else if(f.length){
+      if(revs && !hits) body+=`<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6"><b style="color:var(--text)">„Na kontrolu" neznamená spyware.</b> Znamená to len, že niečo mierne vyčnieva oproti bežnému stavu (napr. <b>spindump</b> = momentka, čo robili procesy, keď sa niečo seklo). Skoro vždy je to neškodné. Ak nechápeš konkrétnu položku, ťukni pri nej <b>🤖 Spýtať sa ChatGPT</b> a vysvetlí ti ju.</div>`;
       body+=f.map(x=>`<div class="finding sev-${x.sev}">
         <div class="ftop"><span class="fname">${escapeHtml(x.name)}</span><span class="fsev">${x.sev==="hit"?"IOC ZHODA":"NA KONTROLU"}</span></div>
         <div class="fmeta">${escapeHtml(x.meta)}</div>
         ${x.ctx?`<div class="fctx">${escapeHtml(x.ctx)}</div>`:""}
+        ${gptBtn(`Kontrolujem si iPhone na spyware. V kategórii „${m.name}" mi nástroj označil položku: „${x.name}". Detail: ${x.meta}. Som úplný laik. Vysvetli mi po slovensky a jednoducho: čo to presne je, či je to normálne alebo nebezpečné, prečo to mohlo byť označené, a čo mám urobiť. Bez zbytočnej paniky.`,"🤖 Spýtať sa ChatGPT čo to je")}
       </div>`).join("");
     } else {
       body+=`<div style="color:var(--ok);font-size:12.5px;font-family:var(--mono)">✓ Nič podozrivé v tejto kategórii.</div>`;
@@ -750,6 +866,10 @@ function render(R, fileCount){
     if(key==="crashes"&&res.rows&&res.rows.length){
       body+=`<div style="font-size:12px;color:var(--muted);margin:12px 0 6px;line-height:1.6">Tu je prehľad, čo na telefóne najčastejšie padalo. <b style="color:var(--text)">Vysoké čísla pri známych Apple procesoch</b> (napr. <code>SiriSearchFeedback</code>, <code>logd</code>, <code>kernel_task</code>) sú <b>úplne normálne</b> — to nie je spyware. Podozrivé sú skôr <b style="color:var(--text)">neznáme názvy</b> s opakovanými pádmi, tie sme prípadne označili vyššie ako „na kontrolu".</div>`;
       body+=`<table><tr><th>proces</th><th>počet pádov</th></tr>`+res.rows.slice(0,15).map(r=>`<tr><td><b>${escapeHtml(r[0])}</b></td><td>${r[1]}</td></tr>`).join("")+`</table>`;
+    }
+    if(key==="connections"&&res.list&&res.list.length){
+      body+=`<div style="font-size:12px;color:var(--muted);margin:12px 0 6px;line-height:1.6">Servery/domény, s ktorými telefón podľa logov komunikoval (${res.hostCount||res.list.length} celkovo, najčastejšie hore). <b style="color:var(--text)">Bežné a v poriadku</b> sú Apple, iCloud, CDN a tvoje appky. Podozrivé sú prípadne označené vyššie.</div>`;
+      body+=`<table><tr><th>doména</th><th>výskytov</th></tr>`+res.list.map(r=>`<tr><td><b>${escapeHtml(r[0])}</b></td><td>${r[1]}</td></tr>`).join("")+`</table>`;
     }
 
     html+=`<div class="exhibit">
@@ -760,6 +880,32 @@ function render(R, fileCount){
       <div class="ex-body${(hits||revs)?' open':''}">${body}</div>
     </div>`;
   }
+
+  // read-files explainer, grouped by type
+  if(files.length){
+    const types={};
+    for(const fl of files){ const c=classifyFile(fl[0]); const o=types[c.label]=types[c.label]||{n:0,desc:c.desc}; o.n++; }
+    const rows=Object.entries(types).sort((a,b)=>b[1].n-a[1].n);
+    let fb=`<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;line-height:1.6">Typy súborov, ktoré som prečítal z tvojho záznamu (${files.length} spolu) a čo znamenajú:</div>`;
+    fb+=rows.map(([label,o])=>`<div class="finding"><div class="ftop"><span class="fname">${escapeHtml(label)}</span><span class="fsev">×${o.n}</span></div><div class="fmeta">${o.desc}</div></div>`).join("");
+    html+=`<div class="exhibit"><div class="ex-head" onclick="this.nextElementSibling.classList.toggle('open')"><span class="ex-no">📂</span><span class="ex-name">Prečítané súbory a čo znamenajú</span><span class="ex-stat s-ok">${files.length}</span></div><div class="ex-body">${fb}</div></div>`;
+  }
+
+  // honest privacy block: messages/location + what could be used against you
+  html+=`<div class="exhibit"><div class="ex-head" onclick="this.nextElementSibling.classList.toggle('open')"><span class="ex-no">❓</span><span class="ex-name">Správy, poloha a čo môže niekto použiť proti tebe</span><span class="ex-stat s-none">info</span></div>
+  <div class="ex-body"><div style="font-size:13px;color:var(--muted);line-height:1.7">
+    <b style="color:var(--text)">Prečo tu nevidíš svoje správy a presnú polohu?</b><br>
+    Sysdiagnose je <b>technický denník systému</b> — obsahuje logy, pády a sieťové štatistiky. <b>Neobsahuje</b> text SMS/iMessage ani GPS históriu „kde som bol". Tie dáta sú inde (šifrovaná záloha v iCloude/počítači) a do diagnostiky sa zámerne nedávajú. To je normálne a dobré.<br><br>
+    <b style="color:var(--text)">Čo sa z tohto záznamu vyčítať dá (a niekto by mohol zneužiť proti tebe):</b>
+    <ul style="margin:6px 0 0;padding-left:18px">
+      <li><b>Wi-Fi siete</b> (vyššie) — prezrádzajú miesta, kde sa pohybuješ.</li>
+      <li><b>Domény a IP adresy</b> — s ktorými službami a appkami komunikuješ.</li>
+      <li><b>Zoznam appiek a profilov</b> — čo máš v telefóne.</li>
+      <li><b>Model a verzia iOS</b> — útočník podľa toho vie, ktoré chyby na teba skúsiť.</li>
+    </ul>
+    <div style="margin-top:8px">Preto <b>nezdieľaj celý sysdiagnose</b> s nikým, komu neveríš.</div>
+    ${gptBtn("Vysvetli mi po slovensky a jednoducho: aké osobné údaje sa dajú vyčítať z iPhone sysdiagnose (Wi-Fi siete, domény, IP adresy, zoznam appiek, model a verzia iOS), ako by ich mohol niekto zneužiť proti mne a ako sa pred tým chrániť.","🤖 Spýtať sa ChatGPT na riziká")}
+  </div></div></div>`;
 
   html+=`<div class="actions">
     <button class="btn btn-go" onclick="exportJSON()">⬇ Stiahnuť report (JSON)</button>
@@ -772,11 +918,94 @@ function render(R, fileCount){
   </div>`;
 
   $("#report").innerHTML=html;
-  window.__report={generated:new Date().toISOString(), version:"0.3", fileCount, results:R};
+  window.__report={generated:new Date().toISOString(), version:"0.4", device:devInfo, ips:ips.map(r=>r[0]), fileCount, results:R};
   $("#report").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
 
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* AI helper — opens ChatGPT (free, works on mobile) with a ready-made question.
+   No server / API key needed: it prefills the prompt and also copies it. */
+function gptBtn(q,label){
+  return `<button class="askgpt" data-gptq="${escapeHtml(q)}" style="margin-top:10px;background:#10231d;color:#9ff0d0;border:1px solid #1f5a47;border-radius:9px;padding:9px 14px;font-size:12.5px;font-family:var(--sans);cursor:pointer">${label}</button>`;
+}
+function askGPT(q){
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(q); }catch(e){}
+  window.open("https://chatgpt.com/?q="+encodeURIComponent(q),"_blank","noopener");
+}
+
+/* file classifier — explains, per file type, what it is and what's inside */
+const FILEINFO=[
+  [/shutdown\.log$/i,"shutdown.log","Záznam o vypínaní telefónu. Forenzne dôležitý: ukazuje, ktoré procesy bránili vypnutiu (Pegasus to robí). Novší iOS ho často nerobí."],
+  [/\.ips$/i,"crash log (.ips)","Záznam, keď nejaký program „spadol”. Obsahuje názov procesu, čas a kde to padlo. Veľa pádov bežných appiek je normálnych."],
+  [/\.crash$/i,"crash log (.crash)","Starší formát záznamu o páde procesu — názov programu, čas a dôvod pádu."],
+  [/spindump/i,"spindump","Momentka, čo robili všetky procesy, keď sa telefón na chvíľu „zasekol”. Slúži na hľadanie, čo systém spomaľovalo."],
+  [/panic/i,"panic log","Záznam vážneho zlyhania systému (telefón sa reštartoval). Väčšinou hardvér/ovládače, nie spyware."],
+  [/(^|\/)ps(_thread)?\.txt$/i,"ps.txt","Zoznam programov (procesov), ktoré v čase záznamu bežali, aj odkiaľ sú spustené."],
+  [/taskinfo/i,"taskinfo","Detailné info o bežiacich úlohách a ich pamäti/vláknach."],
+  [/\.mobileconfig$/i,"konfiguračný profil","Nastavenie, ktoré môže telefón spravovať/sledovať (napr. firma, škola, VPN). Pozeráme, či nie je cudzie."],
+  [/datausage/i,"datausage.sqlite","Databáza, koľko dát ktorá appka preniesla — vrátane na pozadí."],
+  [/networkstatistics|netusage/i,"sieťové štatistiky","Štatistiky sieťových spojení jednotlivých appiek."],
+  [/wifi|airport|wireless/i,"Wi-Fi log","Záznam Wi-Fi: siete, ku ktorým sa telefón pripájal (náznak miest, kde si bol)."],
+  [/powerlog|powlog|battery/i,"power/battery log","Záznam o spotrebe energie a aktivite appiek na pozadí."],
+  [/\.plist$/i,"plist (nastavenie)","Systémový súbor s nastaveniami v tabuľkovom formáte (kľúč → hodnota)."],
+  [/\.log$/i,"systémový log","Bežný textový záznam činnosti niektorej časti systému."],
+  [/\.json$/i,"json dáta","Štruktúrované dáta vo formáte JSON."]
+];
+function classifyFile(name){
+  for(const [re,label,desc] of FILEINFO) if(re.test(name)) return {label,desc};
+  return {label:"iný textový súbor",desc:"Pomocný textový záznam zo sysdiagnose."};
+}
+
+function extractDeviceInfo(files){
+  const info={};
+  const pats={
+    os:/ProductVersion["<>\s:=]+(\d+\.\d+(?:\.\d+)?)/i,
+    build:/ProductBuildVersion["<>\s:=]+([0-9A-Z]+)/i,
+    model:/ProductType["<>\s:=]+([A-Za-z]+\d+,\d+)/i,
+    name:/DeviceName["<>\s:=]+([^\n<"]{1,40})/i
+  };
+  for(const [name,text] of files){
+    if(!text||text.length>3000000) continue;
+    for(const k in pats){ if(!info[k]){ const m=text.match(pats[k]); if(m) info[k]=m[1].trim(); } }
+    if(info.os&&info.build&&info.model&&info.name) break;
+  }
+  return info;
+}
+function extractIPs(files){
+  const c={};
+  const re=/\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b/g;
+  for(const [name,text] of files){
+    if(!text||text.length>3000000) continue;
+    if(!/datausage|network|dns|tcp|http|connection|wifi|interface/i.test(name) && text.indexOf("http")<0) continue;
+    let m,cnt=0;
+    while((m=re.exec(text))&&cnt<3000){
+      const a=+m[1],b=+m[2],c3=+m[3],d=+m[4];
+      if(a>255||b>255||c3>255||d>255) continue;
+      if(a===10||a===127||a===0||a>=224) continue;        // private / loopback / multicast
+      if(a===192&&b===168) continue;
+      if(a===172&&b>=16&&b<=31) continue;
+      if(a===169&&b===254) continue;                        // link-local
+      const ip=m[0]; c[ip]=(c[ip]||0)+1; cnt++;
+    }
+  }
+  return Object.entries(c).sort((x,y)=>y[1]-x[1]).slice(0,30);
+}
+function buildDigest(R, devInfo, ips, files){
+  const labels={signatures:"Známe indikátory (IOC)",shutdown:"shutdown.log",crashes:"Pády procesov",processes:"Bežiace procesy",profiles:"Konfiguračné profily",network:"Sieťové artefakty",connections:"Domény a spojenia",wifi:"Wi-Fi siete",timeline:"Časová os"};
+  const lines=[];
+  if(devInfo&&(devInfo.model||devInfo.os)) lines.push(`Zariadenie: ${devInfo.model||"?"}, iOS ${devInfo.os||"?"} (build ${devInfo.build||"?"}).`);
+  for(const k in R){
+    const res=R[k]||{}, f=res.findings||[];
+    if(f.length) lines.push(`${labels[k]||k} — označené: `+f.slice(0,12).map(x=>`${x.name} [${x.sev==="hit"?"IOC zhoda":"na kontrolu"}: ${x.meta}]`).join("; "));
+    if(k==="connections"&&res.list&&res.list.length) lines.push("Domény (výskyt): "+res.list.slice(0,30).map(r=>`${r[0]}×${r[1]}`).join(", "));
+    if(k==="wifi"&&res.list&&res.list.length) lines.push("Wi-Fi siete: "+res.list.slice(0,40).join(", "));
+  }
+  if(ips&&ips.length) lines.push("Verejné IP adresy: "+ips.slice(0,25).map(r=>r[0]).join(", "));
+  const types={}; for(const fl of files){ const c=classifyFile(fl[0]).label; types[c]=(types[c]||0)+1; }
+  lines.push("Prečítané súbory: "+Object.entries(types).map(([t,n])=>`${t} ×${n}`).join(", "));
+  return lines.join("\n");
+}
 function exportJSON(){
   const blob=new Blob([JSON.stringify(window.__report,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
@@ -887,6 +1116,7 @@ async function handleFiles(fileList){
   await run(collected);
 }
 
+$("#report").addEventListener("click",e=>{ const b=e.target.closest&&e.target.closest(".askgpt"); if(b) askGPT(b.getAttribute("data-gptq")); });
 $("#drop").addEventListener("click",()=>$("#file").click());
 $("#file").addEventListener("change",e=>handleFiles(e.target.files));
 const pickFolderEl=$("#pickFolder");
