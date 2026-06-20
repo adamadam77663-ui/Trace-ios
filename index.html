@@ -3,236 +3,264 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TRACE · iOS Forensics</title>
+<title>TRACE · iOS Forensic Workstation</title>
 <style>
   :root{
-    --bg:#0d1418; --panel:#121d23; --panel2:#0f181d; --line:#22323c;
-    --text:#dbe4e7; --muted:#779099; --faint:#46606b;
-    --signal:#e3a92f;   /* needs review / primary */
-    --alert:#f0695c;    /* high severity hit */
-    --ok:#4fd1a5;       /* clear */
-    --info:#5aa9e6;     /* data */
+    --bg:#080d11; --bg2:#0b1318; --panel:#0f1a21; --panel2:#0c151b; --raised:#13212a;
+    --line:#1d2e39; --line2:#26404e;
+    --text:#e6eef1; --muted:#7e97a1; --faint:#46606b;
+    --signal:#f0b429;   /* review / primary accent */
+    --alert:#ff5d52;    /* high severity */
+    --ok:#3fd0a3;       /* clear */
+    --info:#4ea8e6;     /* data */
+    --violet:#9d8df1;   /* artifacts */
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
-    background:var(--bg);color:var(--text);font-family:var(--sans);
+    background:
+      radial-gradient(900px 500px at 80% -8%, #102733 0%, transparent 60%),
+      radial-gradient(700px 500px at -10% 0%, #14202b 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);font-family:var(--sans);
     -webkit-font-smoothing:antialiased;line-height:1.5;
     padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   }
-  .wrap{max-width:880px;margin:0 auto;padding:20px 16px 80px}
+  .wrap{max-width:940px;margin:0 auto;padding:0 16px 90px}
 
-  /* ── header ── */
-  .head{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:22px}
-  .brand{display:flex;align-items:baseline;gap:10px}
-  .logo{font-family:var(--mono);font-weight:700;font-size:26px;letter-spacing:2px;color:var(--text)}
+  /* ───────── case bar ───────── */
+  .casebar{position:sticky;top:0;z-index:30;
+    background:linear-gradient(180deg,rgba(8,13,17,.96),rgba(8,13,17,.82));
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+    margin:0 -16px 0;padding:12px 16px}
+  .casebar .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .logo{font-family:var(--mono);font-weight:700;font-size:21px;letter-spacing:3px;color:var(--text);display:flex;align-items:center;gap:9px}
+  .logo .glyph{color:var(--signal);font-size:18px}
   .logo b{color:var(--signal)}
-  .ver{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:1px}
-  .tagline{color:var(--muted);font-size:13.5px;margin-top:7px;max-width:560px}
-  .privacy{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
-    font-family:var(--mono);font-size:11px;color:var(--ok);
-    border:1px solid #1d3a33;background:#0f1d1a;border-radius:6px;padding:5px 10px}
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok)}
+  .pill{font-family:var(--mono);font-size:10px;letter-spacing:.5px;padding:4px 8px;border-radius:5px;border:1px solid var(--line2);color:var(--muted)}
+  .pill.live{color:var(--ok);border-color:#1d4a3e;background:#0c1d18}
+  .pill.live .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 7px var(--ok);margin-right:5px;vertical-align:middle;animation:pulse 2s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .casemeta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:right;line-height:1.7}
+  .casemeta b{color:var(--muted)}
 
-  /* ── intake ── */
+  /* ───────── tabs ───────── */
+  .tabs{display:flex;gap:6px;margin:16px 0 18px;flex-wrap:wrap}
+  .tab{flex:1;min-width:150px;font-family:var(--mono);font-size:12px;letter-spacing:.4px;
+    border:1px solid var(--line);background:var(--panel2);color:var(--muted);
+    border-radius:11px;padding:13px 12px;cursor:pointer;transition:.15s;text-align:left;display:flex;gap:10px;align-items:center}
+  .tab .ti{font-size:17px}
+  .tab small{display:block;color:var(--faint);font-size:10px;font-family:var(--sans);margin-top:2px}
+  .tab:hover{border-color:var(--line2)}
+  .tab.active{border-color:var(--signal);background:#14140a;color:var(--text);box-shadow:0 0 0 1px var(--signal) inset}
+  .tab.active .ti{filter:drop-shadow(0 0 6px var(--signal))}
+
+  .tagline{color:var(--muted);font-size:13.5px;margin:2px 0 16px;max-width:640px}
+  .tagline b{color:var(--text)}
+
+  /* ───────── intake ───────── */
   .drop{
-    border:1.5px dashed var(--line);border-radius:14px;background:var(--panel2);
-    padding:30px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;
-    margin-bottom:14px;
+    border:1.5px dashed var(--line2);border-radius:16px;
+    background:linear-gradient(180deg,var(--panel),var(--panel2));
+    padding:34px 20px;text-align:center;cursor:pointer;transition:.15s;margin-bottom:14px;position:relative;overflow:hidden
   }
-  .drop:hover,.drop.over{border-color:var(--signal);background:#14201a08}
-  .drop.over{background:#1a140a}
-  .drop .ico{font-size:34px}
-  .drop .big{font-family:var(--mono);font-size:15px;margin-top:8px;color:var(--text)}
-  .drop .sub{font-size:12.5px;color:var(--muted);margin-top:6px}
-  .or{display:flex;align-items:center;gap:12px;color:var(--faint);font-family:var(--mono);
-    font-size:11px;margin:16px 0}
+  .drop::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(240,180,41,.04) 50%,transparent 70%);transform:translateX(-100%);transition:.4s}
+  .drop:hover{border-color:var(--signal)} .drop:hover::after{transform:translateX(100%)}
+  .drop.over{border-color:var(--signal);background:#1a1408}
+  .drop .ico{font-size:38px}
+  .drop .big{font-family:var(--mono);font-size:15px;margin-top:10px;color:var(--text);letter-spacing:.5px}
+  .drop .sub{font-size:12.5px;color:var(--muted);margin-top:7px}
+  .or{display:flex;align-items:center;gap:12px;color:var(--faint);font-family:var(--mono);font-size:11px;margin:16px 0}
   .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
-  textarea{
-    width:100%;min-height:120px;background:var(--panel2);color:var(--text);
+  textarea{width:100%;min-height:120px;background:var(--panel2);color:var(--text);
     border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);
-    font-size:12px;resize:vertical;outline:none
-  }
+    font-size:12px;resize:vertical;outline:none}
   textarea:focus{border-color:var(--info)}
-  .btn{
-    font-family:var(--mono);font-size:13px;font-weight:600;border:none;border-radius:9px;
-    padding:12px 20px;cursor:pointer;transition:transform .1s,filter .15s;letter-spacing:.5px
-  }
-  .btn:active{transform:translateY(1px)}
-  .btn-go{background:var(--signal);color:#1a1206;width:100%;margin-top:10px}
-  .btn-go:disabled{background:#2a3640;color:var(--faint);cursor:not-allowed}
-  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  input[type=text],input[type=number],select{background:var(--panel2);color:var(--text);
+    border:1px solid var(--line);border-radius:9px;padding:11px;font-family:var(--mono);font-size:12.5px;outline:none}
+  .btn{font-family:var(--mono);font-size:13px;font-weight:600;border:none;border-radius:10px;
+    padding:12px 20px;cursor:pointer;transition:transform .1s,filter .15s;letter-spacing:.5px}
+  .btn:active{transform:translateY(1px)} .btn:hover{filter:brightness(1.08)}
+  .btn-go{background:linear-gradient(180deg,#f7c33d,#e0a019);color:#1a1206;width:100%;margin-top:10px}
+  .btn-go:disabled{background:#1d2b34;color:var(--faint);cursor:not-allowed;filter:none}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line2)}
 
-  .howto{margin-top:22px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .howto{margin-top:18px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
   .howto summary{font-family:var(--mono);font-size:12.5px;color:var(--signal);
     padding:13px 16px;cursor:pointer;list-style:none;background:var(--panel)}
   .howto summary::-webkit-details-marker{display:none}
   .howto summary::before{content:"▸ ";color:var(--faint)}
   .howto[open] summary::before{content:"▾ "}
-  .howto .body{padding:4px 18px 16px;font-size:13px;color:var(--muted)}
-  .howto ol{padding-left:20px;margin:8px 0}
-  .howto li{margin:7px 0}
-  .howto code{font-family:var(--mono);font-size:12px;color:var(--info);
-    background:#0c151a;padding:1px 6px;border-radius:4px}
+  .howto .body{padding:6px 18px 16px;font-size:13px;color:var(--muted)}
+  .howto ol{padding-left:20px;margin:8px 0} .howto li{margin:7px 0}
+  code{font-family:var(--mono);font-size:12px;color:var(--info);background:#0a141a;padding:1px 6px;border-radius:4px}
 
-  /* ── console ── */
-  .console{background:#0a1116;border:1px solid var(--line);border-radius:12px;
-    padding:14px 16px;font-family:var(--mono);font-size:12.5px;margin-bottom:18px;
-    max-height:340px;overflow-y:auto}
+  /* ───────── deep-scan dashboard ───────── */
+  .scan{border:1px solid var(--line2);border-radius:16px;background:var(--panel);
+    margin-bottom:20px;overflow:hidden}
+  .scan-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:13px;letter-spacing:1px;color:var(--signal)}
+  .scan-head .spin{width:13px;height:13px;border:2px solid var(--line2);border-top-color:var(--signal);
+    border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .scan-head .phase{margin-left:auto;color:var(--faint);font-size:11px;letter-spacing:.5px}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+  .metric{background:var(--panel2);padding:13px 14px}
+  .metric .v{font-family:var(--mono);font-size:21px;font-weight:700;color:var(--text);letter-spacing:.5px}
+  .metric .v.io{color:var(--info)} .metric .v.vi{color:var(--violet)}
+  .metric .k{font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:var(--faint);margin-top:3px;text-transform:uppercase}
+  @media(max-width:560px){.metrics{grid-template-columns:repeat(2,1fr)}}
+  .pbar{height:3px;background:var(--line);overflow:hidden}
+  .pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--signal),var(--ok));transition:width .35s}
+  .console{padding:12px 16px;font-family:var(--mono);font-size:12px;max-height:300px;overflow-y:auto;background:#070d11}
   .ln{display:flex;gap:9px;padding:3px 0;align-items:flex-start;animation:fade .25s}
   @keyframes fade{from{opacity:0;transform:translateY(2px)}to{opacity:1}}
-  .ln .tag{flex-shrink:0;width:14px;text-align:center}
-  .ln .msg{color:var(--muted)}
+  .ln .tag{flex-shrink:0;width:14px;text-align:center;color:var(--faint)}
+  .ln .msg{color:var(--muted)} .ln .msg b{color:var(--text)}
   .ln.run .tag{color:var(--signal)} .ln.run .msg{color:var(--text)}
-  .ln.ok  .tag{color:var(--ok)}     .ln.hit .tag{color:var(--alert)}
-  .ln.hit .msg{color:var(--alert)}  .ln.warn .tag{color:var(--signal)}
-  .ln.warn .msg{color:var(--signal)}
+  .ln.ok .tag{color:var(--ok)} .ln.hit .tag{color:var(--alert)} .ln.hit .msg{color:var(--alert)}
+  .ln.hit .msg b{color:var(--alert)} .ln.warn .tag{color:var(--signal)} .ln.warn .msg{color:var(--signal)}
+  .ln .file{color:var(--faint)}
   .blink::after{content:"▋";color:var(--signal);animation:bl 1s steps(2) infinite}
   @keyframes bl{50%{opacity:0}}
 
-  /* ── verdict ── */
-  .verdict{border-radius:14px;padding:22px;margin-bottom:20px;border:1px solid}
-  .verdict.clear{background:#0f1d1a;border-color:#1d3a33}
-  .verdict.review{background:#1c1606;border-color:#3d3210}
-  .verdict.hit{background:#1f0f0d;border-color:#4a1f1b}
-  .verdict .vrow{display:flex;align-items:center;gap:14px}
+  /* ───────── verdict ───────── */
+  .verdict{border-radius:16px;padding:22px;margin-bottom:16px;border:1px solid;position:relative;overflow:hidden}
+  .verdict::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+  .verdict.clear{background:linear-gradient(180deg,#0d1d18,#0c151b);border-color:#194036}
+  .verdict.clear::before{background:var(--ok)}
+  .verdict.review{background:linear-gradient(180deg,#1c1607,#0c151b);border-color:#403211}
+  .verdict.review::before{background:var(--signal)}
+  .verdict.hit{background:linear-gradient(180deg,#210f0d,#0c151b);border-color:#4d201c}
+  .verdict.hit::before{background:var(--alert)}
+  .vrow{display:flex;align-items:center;gap:14px}
   .vmark{font-size:30px;line-height:1}
   .vtitle{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:.5px}
-  .verdict.clear .vtitle{color:var(--ok)}
-  .verdict.review .vtitle{color:var(--signal)}
-  .verdict.hit .vtitle{color:var(--alert)}
-  .vsub{color:var(--muted);font-size:13.5px;margin-top:10px}
-  .score{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:12px;
-    display:flex;gap:16px;flex-wrap:wrap}
-  .score b{color:var(--text)}
+  .verdict.clear .vtitle{color:var(--ok)} .verdict.review .vtitle{color:var(--signal)} .verdict.hit .vtitle{color:var(--alert)}
+  .vsub{color:var(--muted);font-size:13.5px;margin-top:10px} .vsub b{color:var(--text)}
 
-  /* ── exhibits ── */
-  .exhibit{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;
-    overflow:hidden;background:var(--panel)}
-  .ex-head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;
-    user-select:none}
-  .ex-no{font-family:var(--mono);font-size:11px;color:var(--faint);
-    border:1px solid var(--line);border-radius:5px;padding:3px 7px;flex-shrink:0}
+  /* stat strip */
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:13px 14px}
+  .stat .v{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--text)}
+  .stat .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.8px;color:var(--faint);margin-top:3px;text-transform:uppercase}
+  .stat.hit .v{color:var(--alert)} .stat.rev .v{color:var(--signal)} .stat.io .v{color:var(--info)}
+  @media(max-width:560px){.strip{grid-template-columns:repeat(2,1fr)}}
+
+  /* ───────── exhibits ───────── */
+  .sechead{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--faint);
+    text-transform:uppercase;margin:6px 2px 10px}
+  .exhibit{border:1px solid var(--line);border-radius:13px;margin-bottom:10px;overflow:hidden;background:var(--panel)}
+  .ex-head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none}
+  .ex-head:hover{background:var(--raised)}
+  .ex-no{font-family:var(--mono);font-size:11px;color:var(--faint);border:1px solid var(--line2);border-radius:6px;padding:3px 7px;flex-shrink:0}
   .ex-name{font-family:var(--mono);font-size:13.5px;color:var(--text);flex:1}
-  .ex-stat{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:5px;flex-shrink:0}
-  .ex-stat.s-ok{color:var(--ok);background:#0f1d1a}
-  .ex-stat.s-rev{color:var(--signal);background:#1c1606}
-  .ex-stat.s-hit{color:var(--alert);background:#1f0f0d}
-  .ex-stat.s-none{color:var(--faint);background:#0f181d}
+  .ex-sub{font-family:var(--mono);font-size:10px;color:var(--faint);display:block;margin-top:2px}
+  .ex-stat{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:6px;flex-shrink:0}
+  .ex-stat.s-ok{color:var(--ok);background:#0d1d18} .ex-stat.s-rev{color:var(--signal);background:#1c1607}
+  .ex-stat.s-hit{color:var(--alert);background:#210f0d} .ex-stat.s-none{color:var(--faint);background:#0c151b}
   .ex-body{padding:0 16px 16px;font-size:13px;color:var(--muted);display:none}
   .ex-body.open{display:block}
-  .ex-body .desc{color:var(--faint);font-size:12px;margin:0 0 12px;
-    border-left:2px solid var(--line);padding-left:10px}
-  .finding{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0;
-    background:var(--panel2)}
-  .finding.sev-hit{border-color:#4a1f1b}
-  .finding.sev-rev{border-color:#3d3210}
-  .finding .ftop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-  .finding .fname{font-family:var(--mono);font-size:13px;color:var(--text);word-break:break-all}
-  .finding .fsev{font-family:var(--mono);font-size:10px;flex-shrink:0;letter-spacing:.5px}
+  .desc{color:var(--faint);font-size:12px;margin:0 0 12px;border-left:2px solid var(--line2);padding-left:10px;line-height:1.6}
+  .finding{border:1px solid var(--line);border-radius:9px;padding:11px 12px;margin:8px 0;background:var(--panel2)}
+  .finding.sev-hit{border-color:#4d201c;background:#170c0b} .finding.sev-rev{border-color:#403211;background:#15110a}
+  .ftop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .fname{font-family:var(--mono);font-size:13px;color:var(--text);word-break:break-all}
+  .fsev{font-family:var(--mono);font-size:10px;flex-shrink:0;letter-spacing:.5px}
   .sev-hit .fsev{color:var(--alert)} .sev-rev .fsev{color:var(--signal)}
-  .finding .fmeta{font-size:11.5px;color:var(--muted);margin-top:5px}
-  .finding .fctx{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:7px;
-    background:#0a1116;border-radius:5px;padding:7px 9px;white-space:pre-wrap;
-    word-break:break-all;max-height:120px;overflow-y:auto}
-  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
-  th{text-align:left;color:var(--faint);font-family:var(--mono);font-weight:600;
-    padding:6px 8px;border-bottom:1px solid var(--line);font-size:11px}
-  td{padding:6px 8px;border-bottom:1px solid var(--panel2);color:var(--muted);
-    font-family:var(--mono);word-break:break-all}
+  .fmeta{font-size:11.5px;color:var(--muted);margin-top:5px}
+  .fctx{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:7px;background:#070d11;
+    border-radius:6px;padding:7px 9px;white-space:pre-wrap;word-break:break-all;max-height:120px;overflow-y:auto}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  th{text-align:left;color:var(--faint);font-family:var(--mono);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line2);font-size:11px}
+  td{padding:6px 8px;border-bottom:1px solid var(--panel2);color:var(--muted);font-family:var(--mono);word-break:break-all}
   td b{color:var(--text)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
   .tl{font-family:var(--mono);font-size:11.5px}
-  .tl .t-row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--panel2)}
-  .tl .t-time{color:var(--info);flex-shrink:0}
-  .tl .t-desc{color:var(--muted)}
+  .t-row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--panel2)}
+  .t-time{color:var(--info);flex-shrink:0} .t-desc{color:var(--muted)}
 
   .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
   .actions .btn{flex:1;min-width:140px}
-
-  .disclaimer{margin-top:24px;border:1px solid var(--line);border-radius:10px;
-    padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel2)}
+  .note{margin-top:14px;border:1px solid var(--line);border-radius:11px;padding:13px 15px;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel2)}
+  .note b{color:var(--signal)}
+  .disclaimer{margin-top:18px;border:1px solid var(--line);border-radius:11px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel2)}
   .disclaimer b{color:var(--signal)}
   a{color:var(--info)}
-
-  .iocbox{margin-top:14px}
-  .iocbox label{font-family:var(--mono);font-size:11px;color:var(--muted);display:block;margin-bottom:6px}
-  @media print{ body{background:#fff} #intake,.drop,.btn,.howto,.actions,.or,#console{display:none!important} .exhibit,.finding,.verdict{break-inside:avoid} }
+  @media print{ body{background:#fff} .casebar,.tabs,.drop,.btn,.howto,.actions,.scan,.or,#intakeExtra{display:none!important} .exhibit,.finding,.verdict{break-inside:avoid} }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <div class="head">
-    <div class="brand">
-      <span class="logo">TRA<b>CE</b></span>
-      <span class="ver">v0.1 · offline forensics</span>
+  <!-- CASE BAR -->
+  <div class="casebar">
+    <div class="row">
+      <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
+      <span class="pill">v0.6 · workstation</span>
+      <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
+      <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
-    <div class="tagline">Vygeneruj si na iPhone <b>sysdiagnose</b>, hoď ho sem. Hľadá verejne známe indikátory spyware (Pegasus, Predator a spol.) a podozrivé vzory v systémových logoch.</div>
-    <span class="privacy"><span class="dot"></span> 100&nbsp;% beží v tvojom prehliadači — nič sa nikam nenahráva</span>
   </div>
 
-  <!-- INTAKE -->
-  <div id="intake">
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" data-view="sys"><span class="ti">⬡</span><div>Sysdiagnose<small>plný systémový sken</small></div></div>
+    <div class="tab" data-view="behav"><span class="ti">⚡</span><div>Správanie appiek<small>bez sysdiagnose</small></div></div>
+    <div class="tab" data-view="net"><span class="ti">🌐</span><div>Sieťová analýza<small>HAR / beaconing</small></div></div>
+  </div>
+
+  <!-- ════════ VIEW: SYSDIAGNOSE ════════ -->
+  <div id="view-sys">
+    <div class="tagline">Vygeneruj na iPhone <b>sysdiagnose</b> a hoď ho sem. TRACE spustí <b>hĺbkový sken</b> — prejde každý textový artefakt v archíve, vyhľadá verejne známe indikátory spyware (Pegasus, Predator) a podozrivé vzory v logoch. Reálne čísla skenu uvidíš naživo.</div>
+
     <div class="drop" id="drop">
       <div class="ico">🗄️</div>
-      <div class="big">Vybrať sysdiagnose</div>
-      <div class="sub">.tar.gz archív — alebo jednotlivé súbory (shutdown.log, .ips crash logy)</div>
+      <div class="big">Vybrať sysdiagnose archív</div>
+      <div class="sub">.tar.gz — alebo jednotlivé súbory (shutdown.log, .ips crash logy)</div>
     </div>
     <input type="file" id="file" hidden multiple>
 
-    <div class="or">alebo vlož text ručne</div>
-    <textarea id="paste" placeholder="Sem môžeš vložiť obsah shutdown.log alebo iného logu, ak sa archív nedá nahrať z mobilu…"></textarea>
-    <button class="btn btn-go" id="goPaste" disabled>Analyzovať vložený text</button>
+    <div id="intakeExtra">
+      <div class="or">alebo vlož text ručne</div>
+      <textarea id="paste" placeholder="Sem môžeš vložiť obsah shutdown.log alebo iného logu, ak sa archív nedá nahrať z mobilu…"></textarea>
+      <button class="btn btn-go" id="goPaste" disabled>Spustiť hĺbkový sken vloženého textu</button>
 
-    <details class="iocbox howto">
-      <summary>Pridať vlastné IOC indikátory (voliteľné)</summary>
-      <div class="body">
-        <label>Domény / procesy / cesty — jeden na riadok. Aktuálne zoznamy: Amnesty Tech a Citizen Lab (GitHub).</label>
-        <textarea id="ioc" placeholder="napr.&#10;some-c2-domain.com&#10;suspiciousprocd"></textarea>
-      </div>
-    </details>
+      <details class="howto">
+        <summary>Pridať vlastné IOC indikátory (voliteľné)</summary>
+        <div class="body">
+          <label style="font-family:var(--mono);font-size:11px;color:var(--muted);display:block;margin-bottom:6px">Domény / procesy / cesty — jeden na riadok. Aktuálne zoznamy: Amnesty Tech a Citizen Lab (GitHub).</label>
+          <textarea id="ioc" placeholder="napr.&#10;some-c2-domain.com&#10;suspiciousprocd"></textarea>
+        </div>
+      </details>
 
-    <details class="howto">
-      <summary>Ako spraviť sysdiagnose na iPhone</summary>
-      <div class="body">
-        <ol>
-          <li>Stlač naraz <b>obe tlačidlá hlasitosti + bočné tlačidlo</b> na ~1 sekundu (telefón krátko cukne). Generovanie beží ~10 minút na pozadí.</li>
-          <li>Choď do <code>Nastavenia → Súkromie a bezpečnosť → Analytické údaje</code>.</li>
-          <li>Nájdi položku <code>sysdiagnose_…</code>, otvor ju, vpravo hore <b>Zdieľať</b> → <b>Uložiť do Súborov</b>.</li>
-          <li>Tu klikni „Vybrať sysdiagnose" a vyber ten súbor zo Súborov.</li>
-        </ol>
-        <p style="color:var(--faint);font-size:12px">Veľký archív (stovky MB) môže byť na mobile pomalý. Ak to padá, rozbaľ ho na inom zariadení a nahraj sem len <code>shutdown.log</code> a priečinok crash logov — alebo vlož text vyššie.</p>
-      </div>
-    </details>
-
-    <div class="or">alebo bez sysdiagnose</div>
-    <div class="drop" id="behavOpen" style="padding:18px">
-      <div class="big">⚡ Modul 09 · Behaviorálna analýza appiek</div>
-      <div class="sub">Zadáš dáta z Nastavení (Batéria, Mobilné dáta, povolenia) a nájde appky čo sa správajú ako spyware — bez podpisov, len podľa správania</div>
-    </div>
-    <div class="drop" id="netOpen" style="padding:18px;margin-top:12px">
-      <div class="big">🌐 Modul 10 · Sieťová analýza (HAR)</div>
-      <div class="sub">Nahráš HAR / network log a nájde beaconing (pravidelnú C2 komunikáciu) a auto-generované domény</div>
+      <details class="howto">
+        <summary>Ako spraviť sysdiagnose na iPhone</summary>
+        <div class="body">
+          <ol>
+            <li>Stlač naraz <b>obe tlačidlá hlasitosti + bočné tlačidlo</b> na ~1 sekundu (telefón krátko cukne). Generuje sa ~10 min na pozadí.</li>
+            <li><code>Nastavenia → Súkromie a bezpečnosť → Analytické údaje</code>.</li>
+            <li>Nájdi <code>sysdiagnose_…</code>, otvor, vpravo hore <b>Zdieľať → Uložiť do Súborov</b>.</li>
+            <li>Tu klikni „Vybrať sysdiagnose" a vyber ten súbor.</li>
+          </ol>
+          <p style="color:var(--faint);font-size:12px">Veľký archív (stovky MB) môže byť na mobile pomalý. Ak padá, rozbaľ ho inde a nahraj len <code>shutdown.log</code> + priečinok crash logov.</p>
+        </div>
+      </details>
     </div>
   </div>
 
-  <!-- BEHAVIORAL MODULE -->
-  <div id="behav" style="display:none">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <button class="btn btn-ghost" onclick="closeBehav()">← Späť</button>
-      <span style="font-family:var(--mono);font-size:15px;color:var(--signal)">⚡ Behaviorálna analýza</span>
-    </div>
-    <p class="desc" style="color:var(--muted);font-size:13px;border-left:2px solid var(--line);padding-left:10px;margin-bottom:16px">
-      iOS toto neexportuje ako súbor, tak to zadáš ručne. Modul nehľadá známe podpisy — hľadá <b>správanie</b>: appky aktívne na pozadí keď ich nepoužívaš, tiché odosielanie dát, a povolenia čo appka nepotrebuje. Skóre je relatívne voči tvojim ostatným appkám (baseline cez medián + MAD odchýlku). Pridaj aspoň 3 appky.
-    </p>
+  <!-- ════════ VIEW: BEHAVIOR ════════ -->
+  <div id="view-behav" style="display:none">
+    <div class="tagline">iOS toto neexportuje ako súbor, tak dáta zadáš ručne. Modul nehľadá podpisy — hľadá <b>správanie</b>: appky aktívne na pozadí keď ich nepoužívaš, tiché odosielanie dát a povolenia ktoré appka nepotrebuje. Skóre je relatívne voči tvojim ostatným appkám (medián + MAD). Pridaj aspoň 3 appky.</div>
 
-    <div class="exhibit"><div class="ex-body open" style="display:block;padding-top:16px">
+    <div class="exhibit"><div class="ex-body open" style="display:block;padding:16px">
       <div style="font-family:var(--mono);font-size:12px;color:var(--signal);margin-bottom:12px">Pridať aplikáciu</div>
-      <input id="bName" placeholder="Názov appky (napr. Instagram)" style="width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font-family:var(--mono);font-size:13px;outline:none;box-sizing:border-box">
+      <input type="text" id="bName" placeholder="Názov appky (napr. Instagram)" style="width:100%">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-        <select id="bCat" style="background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font-family:var(--mono);font-size:12px;outline:none">
+        <select id="bCat">
           <option value="social">Sociálna sieť / chat</option>
           <option value="game">Hra</option>
           <option value="utility">Nástroj / utilita</option>
@@ -243,7 +271,7 @@
           <option value="calculator">Kalkulačka</option>
           <option value="other">Iné</option>
         </select>
-        <input id="bData" type="number" min="0" placeholder="dáta na pozadí (MB)" style="background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font-family:var(--mono);font-size:12px;outline:none;box-sizing:border-box">
+        <input type="number" id="bData" min="0" placeholder="dáta na pozadí (MB)">
       </div>
       <div style="margin-top:14px">
         <label style="font-family:var(--mono);font-size:11px;color:var(--muted)">Ako veľmi ju reálne používaš: <b id="bFgV" style="color:var(--info)">50</b></label>
@@ -254,7 +282,7 @@
         <input id="bBg" type="range" min="0" max="100" value="10" style="width:100%;accent-color:var(--signal);margin-top:4px" oninput="bBgV.textContent=this.value">
       </div>
       <div style="margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted)">Povolenia ktoré má zapnuté:</div>
-      <div id="bPerms" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+      <div id="bPerms" class="chips" style="margin-top:8px"></div>
       <button class="btn btn-go" onclick="addApp()" style="margin-top:14px">+ Pridať do analýzy</button>
     </div></div>
 
@@ -263,21 +291,14 @@
     <div id="bResults"></div>
   </div>
 
-  <!-- NETWORK MODULE -->
-  <div id="net" style="display:none">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-      <button class="btn btn-ghost" onclick="document.getElementById('net').style.display='none';document.getElementById('intake').style.display='block'">← Späť</button>
-      <span style="font-family:var(--mono);font-size:15px;color:var(--signal)">🌐 Sieťová analýza</span>
-    </div>
-    <p class="desc" style="color:var(--muted);font-size:13px;border-left:2px solid var(--line);padding-left:10px;margin-bottom:14px">
-      Hľadá dve veci čo spyware prezradia: <b>beaconing</b> — pravidelnú „tep" komunikáciu v presných intervaloch, a <b>vysokú entropiu domén</b> — náhodne vyzerajúce adresy aké generuje malvér. Pracuje s HAR exportom alebo textovým logom domén.
-    </p>
+  <!-- ════════ VIEW: NETWORK ════════ -->
+  <div id="view-net" style="display:none">
+    <div class="tagline">Hľadá dve veci čo spyware prezradia: <b>beaconing</b> — pravidelnú „tep" komunikáciu v presných intervaloch, a <b>vysokú entropiu domén</b> — náhodne vyzerajúce adresy aké generuje malvér. Pracuje s HAR exportom alebo textovým logom domén.</div>
     <details class="howto"><summary>Ako spraviť HAR / sieťový záznam</summary><div class="body">
       <ol>
-        <li>Na počítači otvor službu v prehliadači, daj <code>F12 → Network</code>, nechaj chvíľu bežať.</li>
-        <li>Pravý klik v zozname požiadaviek → <b>Save all as HAR</b>.</li>
-        <li>Pre premávku celého telefónu použiješ proxy ako <b>Proxyman</b> alebo <b>Charles</b> (zachytí všetky appky) a exportuješ HAR.</li>
-        <li>Nahraj ten súbor sem.</li>
+        <li>Na PC otvor službu v prehliadači, <code>F12 → Network</code>, nechaj chvíľu bežať.</li>
+        <li>Pravý klik v zozname → <b>Save all as HAR</b>.</li>
+        <li>Pre premávku celého telefónu použiješ proxy <b>Proxyman</b> alebo <b>Charles</b> a exportuješ HAR.</li>
       </ol>
     </div></details>
     <div class="drop" id="netDrop" style="margin-top:14px">
@@ -289,9 +310,6 @@
     <div id="nResults"></div>
   </div>
 
-  <!-- CONSOLE -->
-  <div class="console" id="console" style="display:none"></div>
-
   <!-- REPORT -->
   <div id="report"></div>
 
@@ -300,94 +318,89 @@
 <script>
 "use strict";
 
-/* ════════════════ public IOC seed ════════════════
-   Process-name indicators widely republished from Amnesty International's
-   2021 Pegasus forensic report + Citizen Lab. Treat as a SEED only and load
-   the live lists. Matches are flagged as "verify", never as proof. */
+/* ════════════════ public IOC seed ════════════════ */
 const SEED_PROCESSES = [
   "bh","roleaboutd","stagingd","msgacntd","pcsd","fmld","eventfwd","frcd",
   "ckkeyrollfd","launchafd","libtouchregd","logseld","mptbd","pdftd","comnetd",
   "aggregatenotd","ABSCarryLog","vm_stats","JarvisPluginMgr","com.apple.Mappit.SnapshotService",
   "PerKeyConfig","roleaccountd","nehelper.bridge"
 ];
-/* Path fragments that should never host a recurring sticky process on a clean device */
 const SUSPICIOUS_PATHS = [
   "/private/var/db/com.apple.xpc.roleaccountd.staging/",
-  "/private/var/tmp/",
-  "/private/var/db/MobileIdentityData/",
-  "staging/"
+  "/private/var/tmp/","/private/var/db/MobileIdentityData/","staging/"
 ];
-/* Common Apple daemons -> used to suppress false positives in crash/process anomaly checks */
 const KNOWN_DAEMONS = new Set(["launchd","backboardd","SpringBoard","mediaserverd","wifid",
   "locationd","powerd","assertiond","runningboardd","cfprefsd","logd","mDNSResponder",
   "bluetoothd","apsd","identityservicesd","callservicesd","searchd","dasd","symptomsd",
   "thermalmonitord","timed","tccd","nsurlsessiond","akd","biometrickitd","CommCenter",
   "homed","sharingd","useractivityd","kernel","WebKit","com.apple.WebKit.WebContent",
   "MobileSafari","Preferences","Spotlight","contextstored","duetexpertd","navd"]);
+/* jailbreak / instrumentation artifacts — not proof of spyware, but worth surfacing */
+const JAILBREAK = [
+  "cydia","sileo","zebra","unc0ver","checkra1n","palera1n","taurine","odyssey",
+  "/var/jb","/Library/MobileSubstrate","substrate","substitute","frida","cycript",
+  "Dopamine","xina","TrollStore","apt-get","dpkg","/bin/bash","/usr/libexec/cydia"
+];
+/* domains that are normal Apple/CDN noise -> suppress from "suspicious" harvest */
+const BENIGN_DOMAIN = /(\.|^)(apple\.com|icloud\.com|icloud-content\.com|mzstatic\.com|cdn-apple\.com|aaplimg\.com|apple-dns\.net|gvt1\.com|googleapis\.com|gstatic\.com|google\.com|akadns\.net|akamai(edge|hd|technologies)?\.net|cloudflare\.com|amazonaws\.com|fbcdn\.net|facebook\.com|instagram\.com|whatsapp\.net|microsoft\.com|windows\.net|crashlytics\.com|doubleclick\.net|googlesyndication\.com)$/i;
 
-let DOMAIN_IOCS = [];        // user-supplied
-let CUSTOM_TOKENS = [];      // user-supplied processes/paths
+let DOMAIN_IOCS = [];
+let CUSTOM_TOKENS = [];
 
-/* ════════════════ tiny helpers ════════════════ */
+/* ════════════════ helpers ════════════════ */
 const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
 const dec = new TextDecoder("utf-8", {fatal:false});
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep = ms => new Promise(r=>setTimeout(r, reduceMotion?0:ms));
+const fmt = n => n.toLocaleString("sk-SK");
+const bytesH = b => b<1024?b+" B":b<1048576?(b/1024).toFixed(0)+" kB":(b/1048576).toFixed(1)+" MB";
 
-/* ════════════════ streaming tar.gz parser (memory-safe) ════════════════
-   Walks tar blocks from a gzip-decompressed stream, keeping ONLY interesting
-   files so a huge archive doesn't blow up mobile memory. */
+/* case id */
+const CASE_ID = "TR-"+new Date().toISOString().slice(2,10).replace(/-/g,"")+"-"+Math.random().toString(36).slice(2,6).toUpperCase();
+$("#caseId").textContent=CASE_ID;
+$("#caseTime").textContent=new Date().toLocaleString("sk-SK");
+
+/* ════════════════ streaming tar.gz parser ════════════════ */
 class ByteQueue{
   constructor(){this.chunks=[];this.length=0;}
   push(u8){this.chunks.push(u8);this.length+=u8.length;}
-  read(n){ // copy n bytes out, or null if not enough
-    if(this.length<n) return null;
+  read(n){ if(this.length<n) return null;
     const out=new Uint8Array(n); let off=0;
-    while(off<n){
-      const c=this.chunks[0]; const need=n-off;
+    while(off<n){ const c=this.chunks[0]; const need=n-off;
       if(c.length<=need){out.set(c,off);off+=c.length;this.chunks.shift();}
-      else{out.set(c.subarray(0,need),off);this.chunks[0]=c.subarray(need);off+=need;}
-    }
-    this.length-=n; return out;
-  }
-  discard(n){ // throw away n bytes without copying
-    let rem=Math.min(n,this.length); this.length-=rem;
-    while(rem>0){
-      const c=this.chunks[0];
+      else{out.set(c.subarray(0,need),off);this.chunks[0]=c.subarray(need);off+=need;} }
+    this.length-=n; return out; }
+  discard(n){ let rem=Math.min(n,this.length); this.length-=rem;
+    while(rem>0){ const c=this.chunks[0];
       if(c.length<=rem){rem-=c.length;this.chunks.shift();}
-      else{this.chunks[0]=c.subarray(rem);rem=0;}
-    }
-  }
+      else{this.chunks[0]=c.subarray(rem);rem=0;} } }
 }
-
-function readOctal(u8){ // tar size field (octal ascii, or base-256)
+function readOctal(u8){
   if(u8[0]&0x80){ let n=0; for(let i=1;i<u8.length;i++) n=n*256+u8[i]; return n; }
-  let s=""; for(const b of u8){ if(b===0||b===32)break; s+=String.fromCharCode(b);} 
+  let s=""; for(const b of u8){ if(b===0||b===32)break; s+=String.fromCharCode(b);}
   return s?parseInt(s,8):0;
 }
-
 const INTEREST = [
   /shutdown\.log$/i, /(^|\/)ps(_thread)?\.txt$/i, /spindump/i, /taskinfo/i, /(^|\/)tasks/i,
   /\.ips$/i, /\.crash$/i, /\.panic/i, /crashes_and_spins/i,
   /\.mobileconfig$/i, /configurationprofiles/i, /(^|\/)profiles/i,
   /datausage/i, /networkext/i, /networkstatistics/i, /(^|\/)wifi/i,
-  /mobileactivation/i, /appstored/i
+  /mobileactivation/i, /appstored/i, /\.stub$/i, /\.state$/i, /powerlog/i, /itunesstored/i
 ];
 const isInteresting = name => INTEREST.some(r=>r.test(name));
 
 async function parseTarGz(stream, onFile, onProgress){
-  let ds; try{ ds=stream.pipeThrough(new DecompressionStream("gzip")); }
-  catch(e){ ds=stream; } // already plain tar
+  let ds; try{ ds=stream.pipeThrough(new DecompressionStream("gzip")); }catch(e){ ds=stream; }
   const reader=ds.getReader();
   const q=new ByteQueue();
   let mode="header", info=null, dataRem=0, padRem=0, buf=null, pos=0, longName=null;
-  let bytesIn=0, fileCount=0, done=false;
+  let bytesIn=0, fileCount=0, seen=0, done=false;
 
   const handleHeader = h => {
     let zero=true; for(let i=0;i<512;i++) if(h[i]!==0){zero=false;break;}
     if(zero){ done=true; return; }
     let name=""; for(let i=0;i<100;i++){ if(h[i]===0)break; name+=String.fromCharCode(h[i]); }
-    // ustar prefix
     let prefix=""; const magic=String.fromCharCode(h[257],h[258],h[259],h[260],h[261]);
     if(magic.startsWith("ustar")){ for(let i=345;i<500;i++){ if(h[i]===0)break; prefix+=String.fromCharCode(h[i]); } }
     if(prefix) name=prefix+"/"+name;
@@ -396,62 +409,45 @@ async function parseTarGz(stream, onFile, onProgress){
     const type=String.fromCharCode(h[156]||48);
     const pad=(512-(size%512))%512;
     info={name,size,type}; dataRem=size; padRem=pad; pos=0;
+    if(type==="0"||type==="\0"||type==="") seen++;
     const longHdr=(type==="L"||type==="K"||type==="x"||type==="g");
-    const collect = longHdr || (size>0 && size<25*1024*1024 && (isInteresting(name) || /\.(txt|log|ips|crash|plist|stub|json|state)$/i.test(name)));
+    const collect = longHdr || (size>0 && size<25*1024*1024 && (isInteresting(name) || /\.(txt|log|ips|crash|plist|stub|json|state|conf|cfg)$/i.test(name)));
     buf = collect ? new Uint8Array(size) : null;
     mode="data";
   };
-
   const finishEntry = () => {
     if(buf){
       if(info.type==="L"||info.type==="K"){ longName=dec.decode(buf).replace(/\0+$/,"").trim(); }
-      else if(info.type==="x"||info.type==="g"){
-        const txt=dec.decode(buf); const m=txt.match(/\d+\s+path=([^\n]+)/); if(m) longName=m[1].trim();
-      } else {
-        fileCount++; try{ onFile(info.name, dec.decode(buf)); }catch(e){}
-      }
+      else if(info.type==="x"||info.type==="g"){ const txt=dec.decode(buf); const m=txt.match(/\d+\s+path=([^\n]+)/); if(m) longName=m[1].trim(); }
+      else { fileCount++; try{ onFile(info.name, dec.decode(buf)); }catch(e){} }
     }
     info=null; buf=null; mode="header";
   };
-
   const pump = () => {
     while(!done){
-      if(mode==="header"){
-        if(q.length<512) return;
-        handleHeader(q.read(512));
-      } else {
-        if(dataRem>0){
-          const avail=Math.min(dataRem,q.length);
-          if(avail===0) return;
-          if(buf){ const part=q.read(avail); buf.set(part,pos); pos+=avail; }
-          else q.discard(avail);
-          dataRem-=avail;
-          if(dataRem>0) return;
-        }
-        if(padRem>0){
-          const avail=Math.min(padRem,q.length);
-          if(avail===0) return;
-          q.discard(avail); padRem-=avail;
-          if(padRem>0) return;
-        }
+      if(mode==="header"){ if(q.length<512) return; handleHeader(q.read(512)); }
+      else {
+        if(dataRem>0){ const avail=Math.min(dataRem,q.length); if(avail===0) return;
+          if(buf){ const part=q.read(avail); buf.set(part,pos); pos+=avail; } else q.discard(avail);
+          dataRem-=avail; if(dataRem>0) return; }
+        if(padRem>0){ const avail=Math.min(padRem,q.length); if(avail===0) return;
+          q.discard(avail); padRem-=avail; if(padRem>0) return; }
         finishEntry();
       }
     }
   };
-
   while(!done){
     const {value,done:rdDone}=await reader.read();
     if(rdDone) break;
     bytesIn+=value.length; q.push(value);
-    if(onProgress) onProgress(bytesIn,fileCount);
+    if(onProgress) onProgress(bytesIn,fileCount,seen);
     pump();
   }
-  return fileCount;
+  return {kept:fileCount, total:seen, bytes:bytesIn};
 }
 
-/* ════════════════ detection engines ════════════════ */
+/* ════════════════ detection helpers ════════════════ */
 function wordHit(text, token){
-  // token match on path / word boundaries, case-insensitive
   const esc=token.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
   return new RegExp("(^|[\\s/\"'(:=])"+esc+"($|[\\s/\"')\\].,:])","im").test(text);
 }
@@ -461,108 +457,89 @@ function contextAround(text, token){
   const a=Math.max(0,i-50), b=Math.min(text.length,i+token.length+70);
   return (a>0?"…":"")+text.slice(a,b).replace(/\s+/g," ").trim()+(b<text.length?"…":"");
 }
+function entropyStr(s){ if(!s)return 0; const f={}; for(const c of s)f[c]=(f[c]||0)+1; let e=0; for(const c in f){const p=f[c]/s.length; e-=p*Math.log2(p);} return e; }
+function sld(h){ const p=h.split("."); return p.length>=2?p[p.length-2]:h; }
 
+/* global scan metrics (real counts) */
+const M = {files:0, lines:0, bytes:0, tokens:0, artifacts:0};
+
+/* ════════════════ engines ════════════════ */
 const Engines = {};
 
-// 02 — signature IOC matching across retained text
 Engines.signatures = (files) => {
   const tokens=[...SEED_PROCESSES, ...CUSTOM_TOKENS, ...DOMAIN_IOCS];
-  const findings=[];
+  const findings=[]; let examined=0, hitTokens=0;
   for(const [name,text] of files){
+    examined++;
     for(const tok of tokens){
       if(!tok || tok.length<3) continue;
-      if(wordHit(text, tok)){
-        findings.push({
-          name:tok, sev:"hit",
-          meta:"nájdené v: "+name,
-          ctx:contextAround(text,tok)
-        });
-      }
+      if(wordHit(text, tok)){ hitTokens++;
+        findings.push({name:tok, sev:"hit", meta:"nájdené v: "+name, ctx:contextAround(text,tok)}); }
     }
   }
-  // dedupe by token+file
   const seen=new Set(), out=[];
   for(const f of findings){ const k=f.name+"|"+f.meta; if(!seen.has(k)){seen.add(k);out.push(f);} }
-  return out;
+  return {findings:out, examined, scanned:tokens.length};
 };
 
-// 03 — shutdown.log sticky-process analysis (Amnesty method)
 Engines.shutdown = (files) => {
   const log=files.find(([n])=>/shutdown\.log$/i.test(n));
   if(!log) return {nodata:true};
-  const text=log[1];
-  const paths={};
+  const text=log[1]; const paths={};
   for(const line of text.split("\n")){
-    const m=line.match(/\/[^\s,;]+/g);
-    if(!m) continue;
-    for(let p of m){
-      if(p.length<6) continue;
-      paths[p]=(paths[p]||0)+1;
-    }
+    const m=line.match(/\/[^\s,;]+/g); if(!m) continue;
+    for(let p of m){ if(p.length<6) continue; paths[p]=(paths[p]||0)+1; }
   }
   const findings=[];
   for(const [p,count] of Object.entries(paths)){
-    const standard=/^\/(System|usr|sbin|bin|Applications|Developer|cores|private\/var\/containers|private\/var\/installd|private\/preboot|Library)\b/.test(p)
-      || /\/Application\b/.test(p);
+    const standard=/^\/(System|usr|sbin|bin|Applications|Developer|cores|private\/var\/containers|private\/var\/installd|private\/preboot|Library)\b/.test(p)||/\/Application\b/.test(p);
     const suspPath=SUSPICIOUS_PATHS.some(s=>p.includes(s));
     const knownIoc=SEED_PROCESSES.some(t=>p.toLowerCase().endsWith("/"+t.toLowerCase()));
-    if(knownIoc){
-      findings.push({name:p,sev:"hit",meta:`zhoduje sa so známym IOC procesom · ${count}× blokoval vypnutie`});
-    } else if(suspPath && count>=2){
-      findings.push({name:p,sev:"rev",meta:`podozrivá cesta · opakovane (${count}×) bránil vypnutiu`});
-    } else if(!standard && count>=3){
-      findings.push({name:p,sev:"rev",meta:`neštandardná cesta · ${count}× bránil vypnutiu — pozri či ho poznáš`});
-    }
+    if(knownIoc) findings.push({name:p,sev:"hit",meta:`zhoduje sa so známym IOC procesom · ${count}× blokoval vypnutie`});
+    else if(suspPath && count>=2) findings.push({name:p,sev:"rev",meta:`podozrivá cesta · opakovane (${count}×) bránil vypnutiu`});
+    else if(!standard && count>=3) findings.push({name:p,sev:"rev",meta:`neštandardná cesta · ${count}× bránil vypnutiu — pozri či ho poznáš`});
   }
-  return {findings, scanned:Object.keys(paths).length};
+  return {findings, examined:1, scanned:Object.keys(paths).length};
 };
 
-// 04 — crash & spin reports
 Engines.crashes = (files) => {
   const crashes=files.filter(([n])=>/\.(ips|crash|panic)/i.test(n) || /crashes_and_spins/i.test(n));
   if(!crashes.length) return {nodata:true};
   const byProc={};
   for(const [name,text] of crashes){
     let proc=null;
-    let m=text.match(/"(?:proc(?:ess)?_?name|name)"\s*:\s*"([^"]+)"/i)
-        || text.match(/Process:\s*([^\s[]+)/i);
-    if(m) proc=m[1];
-    else { const fn=name.split("/").pop().split("-")[0]; if(fn) proc=fn; }
-    if(!proc) continue;
-    byProc[proc]=(byProc[proc]||0)+1;
+    let m=text.match(/"(?:proc(?:ess)?_?name|name)"\s*:\s*"([^"]+)"/i)||text.match(/Process:\s*([^\s[]+)/i);
+    if(m) proc=m[1]; else { const fn=name.split("/").pop().split("-")[0]; if(fn) proc=fn; }
+    if(!proc) continue; byProc[proc]=(byProc[proc]||0)+1;
   }
   const rows=Object.entries(byProc).sort((a,b)=>b[1]-a[1]);
   const findings=[];
   for(const [proc,n] of rows){
     const base=proc.split(".").pop();
     const iocMatch=SEED_PROCESSES.includes(proc)||SEED_PROCESSES.includes(base)||CUSTOM_TOKENS.includes(proc);
-    const weird=!KNOWN_DAEMONS.has(proc)&&!KNOWN_DAEMONS.has(base)
-      && /^[a-z]{2,12}d?$/.test(base) && !base.includes(".") && n>=3;
+    const weird=!KNOWN_DAEMONS.has(proc)&&!KNOWN_DAEMONS.has(base)&&/^[a-z]{2,12}d?$/.test(base)&&!base.includes(".")&&n>=3;
     if(iocMatch) findings.push({name:proc,sev:"hit",meta:`zhoduje sa so známym IOC · ${n} pádov`});
     else if(weird) findings.push({name:proc,sev:"rev",meta:`neznámy proces s opakovanými pádmi (${n}×)`});
   }
-  return {findings, rows};
+  return {findings, rows, examined:crashes.length};
 };
 
-// 05 — running process anomalies
 Engines.processes = (files) => {
   const ps=files.find(([n])=>/(^|\/)ps(_thread)?\.txt$/i.test(n));
   if(!ps) return {nodata:true};
-  const findings=[];
+  const findings=[]; let examined=0;
   for(const line of ps[1].split("\n")){
-    const m=line.match(/(\/[^\s]+)\s*$/);
-    if(!m) continue;
+    examined++;
+    const m=line.match(/(\/[^\s]+)\s*$/); if(!m) continue;
     const path=m[1]; const base=path.split("/").pop();
     const ioc=SEED_PROCESSES.includes(base)||SUSPICIOUS_PATHS.some(s=>path.includes(s));
     const standard=/^\/(System|usr|sbin|bin|Applications|Developer|private\/var\/containers|Library)\b/.test(path);
     if(ioc) findings.push({name:path,sev:"hit",meta:"známy IOC / podozrivá cesta"});
-    else if(!standard && /^\/private\/var\/(tmp|db|mobile\/Library\/Caches)/.test(path))
-      findings.push({name:path,sev:"rev",meta:"proces beží z nezvyčajného umiestnenia"});
+    else if(!standard && /^\/private\/var\/(tmp|db|mobile\/Library\/Caches)/.test(path)) findings.push({name:path,sev:"rev",meta:"proces beží z nezvyčajného umiestnenia"});
   }
-  return {findings};
+  return {findings, examined:1, scanned:examined};
 };
 
-// 06 — configuration profiles
 Engines.profiles = (files) => {
   const profs=files.filter(([n])=>/\.mobileconfig$/i.test(n)||/configurationprofiles/i.test(n)||/(^|\/)profiles/i.test(n));
   if(!profs.length) return {nodata:true};
@@ -571,25 +548,53 @@ Engines.profiles = (files) => {
     const ids=[...text.matchAll(/<key>PayloadType<\/key>\s*<string>([^<]+)<\/string>/g)].map(m=>m[1]);
     const mdm=/com\.apple\.mdm|MDM|RemoteManagement/i.test(text);
     if(mdm) findings.push({name:"MDM / vzdialená správa profilu",sev:"rev",meta:"súbor: "+name,ctx:ids.join(", ").slice(0,200)});
-    const nonApple=ids.filter(t=>!t.startsWith("com.apple."));
-    for(const t of nonApple) findings.push({name:t,sev:"rev",meta:"profil tretej strany · "+name});
+    for(const t of ids.filter(t=>!t.startsWith("com.apple."))) findings.push({name:t,sev:"rev",meta:"profil tretej strany · "+name});
   }
-  return {findings, count:profs.length};
+  return {findings, examined:profs.length};
 };
 
-// 07 — network artifacts (best-effort signature pass already covers domains)
-Engines.network = (files) => {
-  const net=files.filter(([n])=>/datausage|networkstatistics|networkext/i.test(n));
-  if(!net.length) return {nodata:true};
+/* NEW — jailbreak / instrumentation artifacts across ALL files */
+Engines.jailbreak = (files) => {
+  const findings=[]; const seen=new Set(); let examined=0;
+  for(const [name,text] of files){
+    examined++; const low=text.toLowerCase();
+    for(const t of JAILBREAK){
+      if(low.includes(t.toLowerCase())){
+        const k=t.toLowerCase(); if(seen.has(k)) continue; seen.add(k);
+        findings.push({name:t,sev:"rev",meta:"artefakt nájdený v: "+name,ctx:contextAround(text,t)});
+      }
+    }
+  }
+  return {findings, examined};
+};
+
+/* NEW — network artifact harvest across ALL files (real depth) */
+Engines.artifacts = (files) => {
+  const domRe=/\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}\b/gi;
+  const ipRe=/\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+  const domains=new Map(), ips=new Map(); let urls=0, examined=0;
+  for(const [name,text] of files){
+    examined++;
+    const slice = text.length>2_000_000 ? text.slice(0,2_000_000) : text;
+    urls += (slice.match(/https?:\/\//gi)||[]).length;
+    let dm; domRe.lastIndex=0;
+    while((dm=domRe.exec(slice))){ const d=dm[0].toLowerCase(); if(d.length>4&&!/\.(plist|log|txt|json|stub|state|app|ips)$/.test(d)) domains.set(d,(domains.get(d)||0)+1); if(domains.size>40000) break; }
+    let im; ipRe.lastIndex=0;
+    while((im=ipRe.exec(slice))){ const ip=im[0]; const ok=ip.split(".").every(o=>+o<=255); if(ok&&!/^(0\.|255\.|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|224\.)/.test(ip)) ips.set(ip,(ips.get(ip)||0)+1); if(ips.size>20000) break; }
+  }
+  M.artifacts = domains.size+ips.size+urls;
   const findings=[];
-  const toks=[...DOMAIN_IOCS,...SEED_PROCESSES,...CUSTOM_TOKENS];
-  for(const [name,text] of net){
-    for(const t of toks){ if(t&&t.length>3&&wordHit(text,t)) findings.push({name:t,sev:"hit",meta:"v sieťových dátach: "+name,ctx:contextAround(text,t)}); }
+  for(const [d,c] of domains){
+    if(BENIGN_DOMAIN.test(d)) continue;
+    const label=sld(d), e=entropyStr(label);
+    if(DOMAIN_IOCS.some(t=>t&&d.includes(t))) findings.push({name:d,sev:"hit",meta:`zhoda s IOC doménou · ${c}× v artefaktoch`});
+    else if(e>3.5 && label.length>=12 && /[0-9]/.test(label)) findings.push({name:d,sev:"rev",meta:`vysoká entropia (${e.toFixed(2)} b/znak) — možná auto-generovaná doména · ${c}×`});
   }
-  return {findings, count:net.length};
+  for(const [ip,c] of ips){ if(c>=3 && DOMAIN_IOCS.includes(ip)) findings.push({name:ip,sev:"hit",meta:`IOC IP · ${c}× v artefaktoch`}); }
+  const top=[...domains.entries()].filter(([d])=>!BENIGN_DOMAIN.test(d)).sort((a,b)=>b[1]-a[1]).slice(0,18);
+  return {findings, examined, counts:{domains:domains.size, ips:ips.size, urls}, top};
 };
 
-// 08 — correlated timeline (from crash headers / ISO timestamps)
 Engines.timeline = (files) => {
   const events=[];
   for(const [name,text] of files){
@@ -600,62 +605,92 @@ Engines.timeline = (files) => {
     }
   }
   events.sort((a,b)=>(a.t<b.t?-1:1));
-  return {events:events.slice(0,40)};
+  return {events:events.slice(0,40), examined:files.length};
 };
 
-/* ════════════════ console UI ════════════════ */
-const consoleEl=$("#console");
+/* ════════════════ deep-scan dashboard ════════════════ */
+let consoleEl, mFiles, mLines, mBytes, mArt, pbar, phaseEl, headSpin;
+function buildDashboard(){
+  const host=document.createElement("div");
+  host.className="scan"; host.id="scanBox";
+  host.innerHTML=`
+    <div class="scan-head"><span class="spin" id="hSpin"></span> DEEP SCAN <span class="phase" id="phase">inicializácia…</span></div>
+    <div class="metrics">
+      <div class="metric"><div class="v io" id="mFiles">0</div><div class="k">súbory</div></div>
+      <div class="metric"><div class="v" id="mLines">0</div><div class="k">riadky</div></div>
+      <div class="metric"><div class="v" id="mBytes">0</div><div class="k">dáta</div></div>
+      <div class="metric"><div class="v vi" id="mArt">0</div><div class="k">artefakty</div></div>
+    </div>
+    <div class="pbar"><i id="pbar"></i></div>
+    <div class="console" id="console"></div>`;
+  $("#view-sys").style.display="none";
+  $("#report").innerHTML="";
+  const old=$("#scanBox"); if(old) old.remove();
+  $(".wrap").insertBefore(host, $("#report"));
+  consoleEl=$("#console"); mFiles=$("#mFiles"); mLines=$("#mLines"); mBytes=$("#mBytes"); mArt=$("#mArt");
+  pbar=$("#pbar"); phaseEl=$("#phase"); headSpin=$("#hSpin");
+}
+function setMetrics(){
+  mFiles.textContent=fmt(M.files); mLines.textContent=fmt(M.lines);
+  mBytes.textContent=bytesH(M.bytes); mArt.textContent=fmt(M.artifacts);
+}
 function line(cls, tag, msg){
-  const d=document.createElement("div");
-  d.className="ln "+cls;
+  const d=document.createElement("div"); d.className="ln "+cls;
   d.innerHTML=`<span class="tag">${tag}</span><span class="msg">${msg}</span>`;
-  consoleEl.appendChild(d); consoleEl.scrollTop=consoleEl.scrollHeight;
-  return d;
+  consoleEl.appendChild(d); consoleEl.scrollTop=consoleEl.scrollHeight; return d;
 }
 
 /* ════════════════ orchestrator ════════════════ */
 async function run(files){
-  $("#intake").style.display="none";
-  consoleEl.style.display="block"; consoleEl.innerHTML="";
-  $("#report").innerHTML="";
+  buildDashboard();
 
-  line("run","›",`Načítané <b>${files.length}</b> súborov na analýzu`);
-  await sleep(250);
+  // real metrics upfront
+  M.files=files.length; M.lines=0; M.bytes=0; M.artifacts=0;
+  for(const [,t] of files){ M.bytes+=t.length; for(let i=0;i<t.length;i++) if(t.charCodeAt(i)===10) M.lines++; }
+  setMetrics();
+
+  phaseEl.textContent="indexujem dôkazy";
+  line("run","›",`Načítaných <b>${fmt(files.length)}</b> artefaktov · <b>${fmt(M.lines)}</b> riadkov · <b>${bytesH(M.bytes)}</b>`);
+  await sleep(260);
 
   const modules=[
-    {no:"01",key:"intake",name:"Príjem dôkazov",run:()=>({info:`${files.length} súborov prijatých a indexovaných`})},
-    {no:"02",key:"signatures",name:"Známe indikátory (IOC)",fn:Engines.signatures},
-    {no:"03",key:"shutdown",name:"Analýza shutdown.log",fn:Engines.shutdown},
-    {no:"04",key:"crashes",name:"Pády a spindumpy",fn:Engines.crashes},
-    {no:"05",key:"processes",name:"Bežiace procesy",fn:Engines.processes},
-    {no:"06",key:"profiles",name:"Konfiguračné profily",fn:Engines.profiles},
-    {no:"07",key:"network",name:"Sieťové artefakty",fn:Engines.network},
-    {no:"08",key:"timeline",name:"Časová os udalostí",fn:Engines.timeline},
+    {no:"01",key:"signatures",name:"Známe indikátory (IOC)",sub:"podpisy Pegasus/Predator naprieč textom",fn:Engines.signatures},
+    {no:"02",key:"shutdown",name:"Analýza shutdown.log",sub:"sticky-procesy pri reštarte (metóda Amnesty)",fn:Engines.shutdown},
+    {no:"03",key:"crashes",name:"Pády a spindumpy",sub:"zoskupenie pádov podľa procesu",fn:Engines.crashes},
+    {no:"04",key:"processes",name:"Bežiace procesy",sub:"procesy z nezvyčajných ciest",fn:Engines.processes},
+    {no:"05",key:"profiles",name:"Konfiguračné profily",sub:"MDM a profily tretích strán",fn:Engines.profiles},
+    {no:"06",key:"jailbreak",name:"Jailbreak / inštrumentácia",sub:"Cydia, Frida, substrate, /var/jb…",fn:Engines.jailbreak},
+    {no:"07",key:"artifacts",name:"Sieťové artefakty (harvest)",sub:"extrakcia domén/IP/URL z celého archívu",fn:Engines.artifacts},
+    {no:"08",key:"timeline",name:"Časová os udalostí",sub:"korelácia v čase",fn:Engines.timeline},
   ];
 
   const results={};
+  let idx=0;
   for(const m of modules){
-    const ln=line("run","▸",`Exhibit ${m.no} · ${m.name} <span class="blink"></span>`);
-    await sleep(reduceMotion?0:380);
-    let res;
-    if(m.fn) res=m.fn(files); else res=m.run();
-    results[m.key]=res;
+    idx++;
+    const ln=line("run","▸",`Exhibit ${m.no} · ${m.name} <span class="file">${m.sub}</span> <span class="blink"></span>`);
+    await sleep(reduceMotion?0:340);
+    const res=m.fn(files); results[m.key]=res;
+    if(m.key==="artifacts") setMetrics();
     const f=(res.findings||[]);
-    const hits=f.filter(x=>x.sev==="hit").length;
-    const revs=f.filter(x=>x.sev==="rev").length;
+    const hits=f.filter(x=>x.sev==="hit").length, revs=f.filter(x=>x.sev==="rev").length;
+    const ex=res.examined!=null?` · ${fmt(res.examined)} súb.`:"";
     ln.querySelector(".blink")?.remove();
-    if(res.nodata){ ln.className="ln"; ln.querySelector(".tag").textContent="–"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — žiadne dáta v archíve`; }
-    else if(hits){ ln.className="ln hit"; ln.querySelector(".tag").textContent="✕"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — <b>${hits} zhoda(y) so známym IOC</b>`; }
-    else if(revs){ ln.className="ln warn"; ln.querySelector(".tag").textContent="!"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — ${revs} na kontrolu`; }
-    else{ ln.className="ln ok"; ln.querySelector(".tag").textContent="✓"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — čisté`; }
+    if(res.nodata){ ln.className="ln"; ln.querySelector(".tag").textContent="–"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — <span class="file">žiadne dáta v archíve</span>`; }
+    else if(hits){ ln.className="ln hit"; ln.querySelector(".tag").textContent="✕"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — <b>${hits} zhoda(y) so známym IOC</b>${ex}`; }
+    else if(revs){ ln.className="ln warn"; ln.querySelector(".tag").textContent="!"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — ${revs} na kontrolu${ex}`; }
+    else{ ln.className="ln ok"; ln.querySelector(".tag").textContent="✓"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — čisté${ex}`; }
+    pbar.style.width=Math.round(idx/modules.length*100)+"%";
   }
+  phaseEl.textContent="dokončené";
+  headSpin.style.display="none";
   await sleep(300);
-  line("run","›","Analýza dokončená. Generujem report.");
+  line("run","✓",`Hĺbkový sken dokončený — prešlo <b>${fmt(M.lines)}</b> riadkov v <b>${fmt(M.files)}</b> súboroch, indexovaných <b>${fmt(M.artifacts)}</b> artefaktov.`);
   await sleep(400);
   render(results, files.length);
 }
 
-/* ════════════════ report rendering ════════════════ */
+/* ════════════════ report ════════════════ */
 function render(R, fileCount){
   let totalHits=0, totalRev=0;
   for(const k in R){ const f=R[k].findings||[]; totalHits+=f.filter(x=>x.sev==="hit").length; totalRev+=f.filter(x=>x.sev==="rev").length; }
@@ -672,23 +707,31 @@ function render(R, fileCount){
     vSub="V tomto zázname sa nenašli žiadne známe spyware indikátory ani podozrivé sticky-procesy. Pre drvivú väčšinu ľudí je to očakávaný a normálny výsledok.";
   }
 
-  let html=`<div class="verdict ${vClass}">
-    <div class="vrow"><div class="vmark">${vMark}</div><div class="vtitle">${vTitle}</div></div>
-    <div class="vsub">${vSub}</div>
-    <div class="score"><span>súborov: <b>${fileCount}</b></span><span>IOC zhody: <b>${totalHits}</b></span><span>na kontrolu: <b>${totalRev}</b></span></div>
+  let html=`<div class="verdict ${vClass}"><div class="vrow"><div class="vmark">${vMark}</div><div class="vtitle">${vTitle}</div></div><div class="vsub">${vSub}</div></div>`;
+
+  html+=`<div class="strip">
+    <div class="stat"><div class="v">${fmt(M.files)}</div><div class="k">súborov</div></div>
+    <div class="stat io"><div class="v">${fmt(M.lines)}</div><div class="k">riadkov</div></div>
+    <div class="stat ${totalHits?'hit':''}"><div class="v">${totalHits}</div><div class="k">IOC zhody</div></div>
+    <div class="stat ${totalRev?'rev':''}"><div class="v">${totalRev}</div><div class="k">na kontrolu</div></div>
   </div>`;
 
-  const meta={
-    signatures:{no:"02",name:"Známe indikátory (IOC)",desc:"Prehľadáva všetky textové súbory v zázname proti zoznamu známych procesov a domén spyware (Pegasus, Predator). Seed pochádza z výskumu Amnesty International a Citizen Lab."},
-    shutdown:{no:"03",name:"Analýza shutdown.log",desc:"Metóda Amnesty International: spyware ako Pegasus opakovane bráni procesom vypnúť sa pri reštarte. Hľadá procesy, ktoré sa pri vypínaní objavujú dokola a bežia z neštandardných ciest."},
-    crashes:{no:"04",name:"Pády a spindumpy",desc:"Spyware exploity často nechávajú stopy v crash logoch. Zoskupuje pády podľa procesu a označí neznáme procesy s opakovanými pádmi."},
-    processes:{no:"05",name:"Bežiace procesy",desc:"Procesy bežiace z dočasných alebo skrytých umiestnení (napr. /private/var/tmp) sú podozrivé — legitímne appky tam nebežia."},
-    profiles:{no:"06",name:"Konfiguračné profily",desc:"MDM a profily tretích strán môžu monitorovať alebo riadiť zariadenie. Vypíše profily, ktoré nie sú od Apple."},
-    network:{no:"07",name:"Sieťové artefakty",desc:"Kontroluje dátové/sieťové databázy proti známym IOC doménam a procesom."},
-    timeline:{no:"08",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi, aby sa dali korelovať podozrivé veci v čase."}
-  };
-  const order=["signatures","shutdown","crashes","processes","profiles","network","timeline"];
+  // why-so-fast transparency note
+  html+=`<div class="note"><b>Prečo to bolo rýchle?</b> TRACE neposiela nič na server — všetko beží lokálne. Práve preto je to rýchle: prehľadanie ${fmt(M.lines)} riadkov regulárnymi vzormi v prehliadači trvá sekundy. Hĺbka skenu nie je o čase, ale o pokrytí: prešlo sa <b>${fmt(M.files)}</b> súborov a indexovalo <b>${fmt(M.artifacts)}</b> sieťových artefaktov. To je rovnaký princíp aký používa MVT od Amnesty International.</div>`;
 
+  const meta={
+    signatures:{no:"01",name:"Známe indikátory (IOC)",desc:"Prehľadáva všetky textové artefakty proti zoznamu známych procesov a domén spyware (Pegasus, Predator). Seed pochádza z výskumu Amnesty International a Citizen Lab."},
+    shutdown:{no:"02",name:"Analýza shutdown.log",desc:"Metóda Amnesty: Pegasus opakovane bráni procesom vypnúť sa pri reštarte. Hľadá procesy, ktoré sa pri vypínaní objavujú dokola a bežia z neštandardných ciest."},
+    crashes:{no:"03",name:"Pády a spindumpy",desc:"Spyware exploity často nechávajú stopy v crash logoch. Zoskupuje pády podľa procesu a označí neznáme procesy s opakovanými pádmi."},
+    processes:{no:"04",name:"Bežiace procesy",desc:"Procesy bežiace z dočasných alebo skrytých umiestnení (napr. /private/var/tmp) sú podozrivé — legitímne appky tam nebežia."},
+    profiles:{no:"05",name:"Konfiguračné profily",desc:"MDM a profily tretích strán môžu monitorovať alebo riadiť zariadenie. Vypíše profily, ktoré nie sú od Apple."},
+    jailbreak:{no:"06",name:"Jailbreak / inštrumentácia",desc:"Stopy po jailbreaku alebo nástrojoch na inštrumentáciu (Cydia, Sileo, Frida, substrate, /var/jb). Nie je to dôkaz spyware, ale mení to rizikový profil zariadenia."},
+    artifacts:{no:"07",name:"Sieťové artefakty (harvest)",desc:"Vytiahne všetky domény, IP a URL z celého archívu, odfiltruje bežný Apple/CDN šum a označí auto-generované (vysoká entropia) alebo IOC adresy."},
+    timeline:{no:"08",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi pre koreláciu v čase."}
+  };
+  const order=["signatures","shutdown","crashes","processes","profiles","jailbreak","artifacts","timeline"];
+
+  html+=`<div class="sechead">Dôkazy · ${order.length} modulov</div>`;
   for(const key of order){
     const m=meta[key], res=R[key]||{};
     const f=res.findings||[];
@@ -703,26 +746,27 @@ function render(R, fileCount){
     if(res.nodata){
       body+=`<div style="color:var(--faint);font-size:12px">Tento typ dát nebol v nahranom zázname. Pre kompletnú analýzu nahraj plný sysdiagnose archív.</div>`;
     } else if(key==="timeline"){
-      if(res.events.length){
-        body+=`<div class="tl">`+res.events.map(e=>`<div class="t-row"><span class="t-time">${e.t}</span><span class="t-desc">${e.d}</span></div>`).join("")+`</div>`;
-      } else body+=`<div style="color:var(--faint);font-size:12px">Žiadne časované udalosti.</div>`;
+      if(res.events.length) body+=`<div class="tl">`+res.events.map(e=>`<div class="t-row"><span class="t-time">${escapeHtml(e.t)}</span><span class="t-desc">${escapeHtml(e.d)}</span></div>`).join("")+`</div>`;
+      else body+=`<div style="color:var(--faint);font-size:12px">Žiadne časované udalosti.</div>`;
     } else if(f.length){
       body+=f.map(x=>`<div class="finding sev-${x.sev}">
         <div class="ftop"><span class="fname">${escapeHtml(x.name)}</span><span class="fsev">${x.sev==="hit"?"IOC ZHODA":"NA KONTROLU"}</span></div>
         <div class="fmeta">${escapeHtml(x.meta)}</div>
-        ${x.ctx?`<div class="fctx">${escapeHtml(x.ctx)}</div>`:""}
-      </div>`).join("");
+        ${x.ctx?`<div class="fctx">${escapeHtml(x.ctx)}</div>`:""}</div>`).join("");
     } else {
       body+=`<div style="color:var(--ok);font-size:12.5px;font-family:var(--mono)">✓ Nič podozrivé v tejto kategórii.</div>`;
     }
-    // extra tables
-    if(key==="crashes"&&res.rows&&res.rows.length){
+    if(key==="crashes"&&res.rows&&res.rows.length)
       body+=`<table><tr><th>proces</th><th>počet pádov</th></tr>`+res.rows.slice(0,15).map(r=>`<tr><td><b>${escapeHtml(r[0])}</b></td><td>${r[1]}</td></tr>`).join("")+`</table>`;
+    if(key==="artifacts"&&res.counts){
+      body+=`<div class="fmeta" style="margin-top:10px">Indexované: <b style="color:var(--text)">${fmt(res.counts.domains)}</b> domén · <b style="color:var(--text)">${fmt(res.counts.ips)}</b> IP · <b style="color:var(--text)">${fmt(res.counts.urls)}</b> URL</div>`;
+      if(res.top&&res.top.length) body+=`<div class="chips">`+res.top.map(([d,c])=>`<span class="chip">${escapeHtml(d)} <span style="color:var(--faint)">${c}×</span></span>`).join("")+`</div>`;
     }
 
     html+=`<div class="exhibit">
       <div class="ex-head" onclick="this.nextElementSibling.classList.toggle('open')">
-        <span class="ex-no">${m.no}</span><span class="ex-name">${m.name}</span>
+        <span class="ex-no">${m.no}</span>
+        <span class="ex-name">${m.name}<span class="ex-sub">${escapeHtml(meta[key].desc.slice(0,52))}…</span></span>
         <span class="ex-stat ${statCls}">${stat}</span>
       </div>
       <div class="ex-body${(hits||revs)?' open':''}">${body}</div>
@@ -735,12 +779,13 @@ function render(R, fileCount){
   </div>`;
 
   html+=`<div class="disclaimer">
-    <b>Čo tento nástroj je a čo nie je.</b> TRACE kontroluje <b>verejne známe</b> spyware indikátory a podozrivé vzory v logoch — to isté čo robia nástroje ako MVT (Amnesty International). Vie zachytiť známe hrozby a anomálie, ale <b>nezaručuje</b> čistotu: cielený zero-day spyware, ktorý ešte nie je zdokumentovaný, nemusí zanechať známu stopu. Novší iOS navyše maže časť stôp (napr. shutdown.log). Čistý výsledok teda znamená „nič známe sa nenašlo", nie „100% bez spyware".
+    <b>Čo tento nástroj je a čo nie je.</b> TRACE kontroluje <b>verejne známe</b> spyware indikátory a podozrivé vzory v logoch — to isté čo robí MVT (Amnesty International). Vie zachytiť známe hrozby a anomálie, ale <b>nezaručuje</b> čistotu: cielený zero-day spyware, ktorý ešte nie je zdokumentovaný, nemusí zanechať známu stopu. Novší iOS navyše maže časť stôp (napr. shutdown.log). Čistý výsledok znamená „nič známe sa nenašlo", nie „100 % bez spyware".
     <br><br>Ak máš reálne podozrenie že si cieľom (novinár, aktivista, atď.), obráť sa na <a href="https://www.accessnow.org/help/" target="_blank" rel="noopener">Access Now Digital Security Helpline</a> (zdarma) alebo použi <a href="https://github.com/mvt-project/mvt" target="_blank" rel="noopener">MVT</a> s aktuálnymi indikátormi.
   </div>`;
 
   $("#report").innerHTML=html;
-  window.__report={generated:new Date().toISOString(), fileCount, results:R};
+  const sb=$("#scanBox"); if(sb){ sb.querySelector(".scan-head").style.borderBottomColor="var(--line)"; }
+  window.__report={case:CASE_ID, generated:new Date().toISOString(), metrics:M, fileCount, results:R};
   $("#report").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
 
@@ -748,45 +793,38 @@ function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"
 function exportJSON(){
   const blob=new Blob([JSON.stringify(window.__report,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download="trace-report-"+Date.now()+".json"; a.click();
+  a.download="trace-"+CASE_ID+".json"; a.click();
 }
 
 /* ════════════════ input wiring ════════════════ */
 function readIOCs(){
-  const raw=$("#ioc").value.trim();
-  CUSTOM_TOKENS=[]; DOMAIN_IOCS=[];
+  const raw=$("#ioc").value.trim(); CUSTOM_TOKENS=[]; DOMAIN_IOCS=[];
   if(!raw) return;
-  for(let l of raw.split("\n")){
-    l=l.trim(); if(!l||l.startsWith("#")) continue;
-    if(l.includes(".")&&!l.includes("/")) DOMAIN_IOCS.push(l);
-    else CUSTOM_TOKENS.push(l);
-  }
+  for(let l of raw.split("\n")){ l=l.trim(); if(!l||l.startsWith("#")) continue;
+    if(l.includes(".")&&!l.includes("/")) DOMAIN_IOCS.push(l); else CUSTOM_TOKENS.push(l); }
 }
-
 async function handleFiles(fileList){
   readIOCs();
-  const arr=[...fileList];
-  if(!arr.length) return;
+  const arr=[...fileList]; if(!arr.length) return;
   const archive=arr.find(f=>/\.(tar\.gz|tgz|gz|tar)$/i.test(f.name));
   const collected=[];
-
   if(archive){
-    $("#intake").style.display="none";
-    consoleEl.style.display="block"; consoleEl.innerHTML="";
-    const pl=line("run","▸",`Rozbaľujem ${archive.name} <span class="blink"></span>`);
+    buildDashboard();
+    phaseEl.textContent="rozbaľujem archív"; headSpin.style.display="inline-block";
+    const pl=line("run","▸",`Rozbaľujem ${escapeHtml(archive.name)} <span class="blink"></span>`);
     try{
-      const n=await parseTarGz(archive.stream(), (name,text)=>collected.push([name,text]),
-        (bytes,fc)=>{ pl.querySelector(".msg").innerHTML=`Rozbaľujem ${archive.name} — ${(bytes/1048576).toFixed(0)} MB, ${fc} súborov <span class="blink"></span>`; });
+      const r=await parseTarGz(archive.stream(), (name,text)=>collected.push([name,text]),
+        (bytes,fc,seen)=>{ M.files=fc; M.bytes=bytes; if(mFiles){mFiles.textContent=fmt(fc);mBytes.textContent=bytesH(bytes);}
+          pl.querySelector(".msg").innerHTML=`Rozbaľujem ${escapeHtml(archive.name)} — ${bytesH(bytes)} · ${fmt(seen)} položiek, ${fmt(fc)} relevantných <span class="blink"></span>`; });
       pl.querySelector(".blink")?.remove();
       pl.className="ln ok"; pl.querySelector(".tag").textContent="✓";
-      pl.querySelector(".msg").innerHTML=`Rozbalené — ${collected.length} relevantných súborov`;
+      pl.querySelector(".msg").innerHTML=`Rozbalené — <b>${fmt(collected.length)}</b> relevantných z ${fmt(r.total)} súborov (${bytesH(r.bytes)})`;
     }catch(e){
       pl.className="ln hit"; pl.querySelector(".tag").textContent="✕";
-      pl.querySelector(".msg").innerHTML="Archív sa nepodarilo rozbaliť: "+escapeHtml(e.message)+". Skús rozbaliť na inom zariadení a nahrať jednotlivé súbory.";
-      return;
+      pl.querySelector(".msg").innerHTML="Archív sa nepodarilo rozbaliť: "+escapeHtml(e.message)+". Skús rozbaliť inde a nahrať jednotlivé súbory.";
+      headSpin.style.display="none"; return;
     }
   } else {
-    // individual files
     for(const f of arr){ const t=await f.text(); collected.push([f.name,t]); }
   }
   await run(collected);
@@ -802,25 +840,32 @@ const pasteEl=$("#paste"), goPaste=$("#goPaste");
 pasteEl.addEventListener("input",()=>{ goPaste.disabled=pasteEl.value.trim().length<10; });
 goPaste.addEventListener("click",()=>{ readIOCs(); run([["pasted-input.log",pasteEl.value]]); });
 
-/* ════════════════ Modul 09 — behaviorálna analýza appiek ════════════════ */
+/* ════════════════ tab switching ════════════════ */
+const VIEWS={sys:"#view-sys",behav:"#view-behav",net:"#view-net"};
+$$(".tab").forEach(t=>t.addEventListener("click",()=>{
+  $$(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
+  const v=t.dataset.view;
+  for(const k in VIEWS) $(VIEWS[k]).style.display = (k===v)?"block":"none";
+  const sb=$("#scanBox"); if(sb) sb.style.display="none";
+  $("#report").innerHTML="";
+  if(v==="behav") initPerms();
+}));
+
+/* ════════════════ Behaviour module ════════════════ */
 const B_PERMS=["camera","mic","location","contacts","photos","health","background"];
 const B_PERM_LABEL={camera:"📷 Kamera",mic:"🎙 Mikrofón",location:"📍 Poloha",contacts:"👥 Kontakty",photos:"🖼 Fotky",health:"❤️ Zdravie",background:"🔄 Obnova na pozadí"};
 const B_EXPECT={social:["network","camera","mic","photos","contacts"],game:["network"],utility:["network"],maps:["network","location"],photos:["photos","network"],note:["network"],flashlight:[],calculator:[],other:["network"]};
 const B_RISK={camera:3,mic:3,location:3,contacts:2,photos:2,health:3,background:1,network:0};
 let behavApps=[];
-
 function initPerms(){
   const box=$("#bPerms"); if(!box||box.children.length) return;
   for(const p of B_PERMS){
     const l=document.createElement("label");
-    l.style.cssText="font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:6px 9px;cursor:pointer;display:flex;gap:5px;align-items:center";
+    l.className="chip"; l.style.cursor="pointer"; l.style.display="flex"; l.style.gap="5px"; l.style.alignItems="center";
     l.innerHTML=`<input type="checkbox" id="perm_${p}" style="accent-color:var(--signal)">${B_PERM_LABEL[p]}`;
     box.appendChild(l);
   }
 }
-function openBehav(){ $("#intake").style.display="none"; $("#behav").style.display="block"; initPerms(); }
-function closeBehav(){ $("#behav").style.display="none"; $("#intake").style.display="block"; }
-
 function addApp(){
   const name=$("#bName").value.trim(); if(!name){ $("#bName").focus(); return; }
   const perms=B_PERMS.filter(p=>$("#perm_"+p)&&$("#perm_"+p).checked); perms.push("network");
@@ -833,7 +878,7 @@ function addApp(){
 function rmApp(i){ behavApps.splice(i,1); renderAppList(); $("#bAnalyze").disabled=behavApps.length<3; }
 function renderAppList(){
   if(!behavApps.length){ $("#bList").innerHTML=""; return; }
-  $("#bList").innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:14px 0 8px">Pridané appky (${behavApps.length}):</div>`+
+  $("#bList").innerHTML=`<div class="sechead">Pridané appky (${behavApps.length})</div>`+
     behavApps.map((a,i)=>`<div class="finding" style="display:flex;justify-content:space-between;align-items:center">
       <div><span class="fname">${escapeHtml(a.name)}</span><div class="fmeta">${a.category} · používanie ${a.fg} · pozadie ${a.bg}% · ${a.data}MB · ${a.perms.filter(p=>p!=="network").join(",")||"žiadne extra perm"}</div></div>
       <button class="btn btn-ghost" style="padding:6px 10px" onclick="rmApp(${i})">✕</button></div>`).join("");
@@ -861,22 +906,18 @@ function analyzeBehav(){
   if(top.risk>=60) head=`<div class="verdict hit"><div class="vrow"><div class="vmark">⚠</div><div class="vtitle">PODOZRIVÉ SPRÁVANIE</div></div><div class="vsub"><b>${escapeHtml(top.name)}</b> sa správa nezvyčajne oproti tvojim ostatným appkám. Nie je to dôkaz spyware, ale appku preveruj — skús ju odinštalovať a sleduj, či sa batéria/dáta upokoja.</div></div>`;
   else if(top.risk>=30) head=`<div class="verdict review"><div class="vrow"><div class="vmark">!</div><div class="vtitle">PÁR ODCHÝLOK</div></div><div class="vsub">Nič výrazné, ale niektoré appky mierne vyčnievajú. Pozri nižšie.</div></div>`;
   else head=`<div class="verdict clear"><div class="vrow"><div class="vmark">✓</div><div class="vtitle">SPRÁVANIE V NORME</div></div><div class="vsub">Žiadna appka sa nespráva podozrivo oproti baseline tvojho zariadenia.</div></div>`;
-  $("#bResults").innerHTML=head+scored.map(s=>{
+  $("#bResults").innerHTML=head+`<div class="sechead">Appky podľa rizika</div>`+scored.map(s=>{
     const cls=s.risk>=60?"sev-hit":s.risk>=30?"sev-rev":"";
     const col=s.risk>=60?"var(--alert)":s.risk>=30?"var(--signal)":"var(--ok)";
     return `<div class="finding ${cls}"><div class="ftop"><span class="fname">${escapeHtml(s.name)}</span><span class="fsev">risk ${s.risk}/100</span></div>
       <div style="height:6px;background:var(--line);border-radius:3px;margin-top:8px;overflow:hidden"><div style="height:100%;width:${s.risk}%;background:${col}"></div></div>
       ${s.reasons.length?`<div class="fmeta" style="margin-top:8px">${s.reasons.map(r=>"• "+escapeHtml(r)).join("<br>")}</div>`:`<div class="fmeta" style="margin-top:8px;color:var(--ok)">• správanie v norme</div>`}</div>`;
-  }).join("")+`<div class="actions"><button class="btn btn-ghost" onclick="window.print()">⬇ Uložiť ako PDF</button><button class="btn btn-ghost" onclick="behavApps=[];renderAppList();$('#bResults').innerHTML='';$('#bAnalyze').disabled=true">↻ Vyčistiť</button></div>`;
+  }).join("")+`<div class="actions"><button class="btn btn-ghost" onclick="window.print()">⬇ Uložiť ako PDF</button><button class="btn btn-ghost" onclick="behavApps=[];renderAppList();document.getElementById('bResults').innerHTML='';document.getElementById('bAnalyze').disabled=true">↻ Vyčistiť</button></div>`;
   $("#bResults").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
-$("#behavOpen").addEventListener("click",openBehav);
 
-/* ════════════════ Modul 10 — sieťová analýza (HAR / logy) ════════════════ */
-function entropyStr(s){ if(!s)return 0; const f={}; for(const c of s)f[c]=(f[c]||0)+1; let e=0; for(const c in f){const p=f[c]/s.length; e-=p*Math.log2(p);} return e; }
-function sld(h){ const p=h.split("."); return p.length>=2?p[p.length-2]:h; }
+/* ════════════════ Network module ════════════════ */
 function beacon(ts){ if(ts.length<4)return null; const t=[...ts].sort((a,b)=>a-b); const d=[]; for(let i=1;i<t.length;i++)d.push((t[i]-t[i-1])/1000); const m=d.reduce((a,b)=>a+b,0)/d.length; if(m<=0)return null; const v=d.reduce((a,b)=>a+(b-m)**2,0)/d.length; return {count:t.length,mean:m,cv:Math.sqrt(v)/m}; }
-
 async function handleNet(fileList){
   readIOCs();
   const f=fileList[0]; if(!f) return;
@@ -913,14 +954,13 @@ function analyzeNet(entries){
   const hi=findings.filter(f=>f.risk>=50).length; let head;
   if(hi) head=`<div class="verdict hit"><div class="vrow"><div class="vmark">⚠</div><div class="vtitle">PODOZRIVÁ SIEŤOVÁ AKTIVITA</div></div><div class="vsub">${hi} doména(y) vykazuje vzory typické pre spyware komunikáciu (pravidelný beaconing alebo náhodné domény). Pozri nižšie.</div></div>`;
   else head=`<div class="verdict clear"><div class="vrow"><div class="vmark">✓</div><div class="vtitle">ŽIADNE PODOZRIVÉ VZORY</div></div><div class="vsub">Nevidno beaconing ani auto-generované domény. Analyzovaných ${findings.length} domén.</div></div>`;
-  $("#nResults").innerHTML=head+`<div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:14px 0 8px">Domény podľa rizika:</div>`+findings.slice(0,40).map(f=>{
+  $("#nResults").innerHTML=head+`<div class="sechead">Domény podľa rizika</div>`+findings.slice(0,40).map(f=>{
     const cls=f.risk>=50?"sev-hit":f.risk>=22?"sev-rev":"";
     return `<div class="finding ${cls}"><div class="ftop"><span class="fname">${escapeHtml(f.host)}</span><span class="fsev">${f.risk?("risk "+f.risk):f.count+"×"}</span></div>
     ${f.reasons.length?`<div class="fmeta" style="margin-top:6px">${f.reasons.map(r=>"• "+escapeHtml(r)).join("<br>")}</div>`:`<div class="fmeta" style="margin-top:6px">${f.count} požiadaviek · entropia ${f.ent}</div>`}</div>`;
   }).join("")+`<div class="actions"><button class="btn btn-ghost" onclick="window.print()">⬇ Uložiť ako PDF</button></div>`;
   $("#nResults").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
-$("#netOpen").addEventListener("click",()=>{ $("#intake").style.display="none"; $("#net").style.display="block"; });
 $("#netDrop").addEventListener("click",()=>$("#netFile").click());
 $("#netFile").addEventListener("change",e=>handleNet(e.target.files));
 </script>
