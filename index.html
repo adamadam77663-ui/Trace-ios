@@ -190,6 +190,19 @@
   .disclaimer{margin-top:18px;border:1px solid var(--line);border-radius:11px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel2)}
   .disclaimer b{color:var(--signal)}
   a{color:var(--info)}
+  /* guided behaviour form */
+  .field{margin-top:18px}
+  .flabel{font-family:var(--sans);font-size:13.5px;color:var(--text);margin-bottom:4px;font-weight:600}
+  .hint{font-size:12px;color:var(--muted);margin-bottom:9px;line-height:1.55}
+  .hint code{font-size:11px}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{flex:1;min-width:78px;font-family:var(--mono);font-size:12px;border:1px solid var(--line2);
+    background:var(--panel2);color:var(--muted);border-radius:10px;padding:11px 8px;cursor:pointer;transition:.12s}
+  .seg button:hover{border-color:var(--info)}
+  .seg button.on{border-color:var(--info);background:#0c1c28;color:var(--text);box-shadow:0 0 0 1px var(--info) inset}
+  .guide{border:1px solid var(--line2);border-radius:12px;background:#0c1722;padding:14px 16px;margin-bottom:16px}
+  .guide h4{margin:0 0 8px;font-family:var(--mono);font-size:12px;color:var(--info);letter-spacing:.5px}
+  .guide ol{margin:0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7}
   @media print{ body{background:#fff} .casebar,.tabs,.drop,.btn,.howto,.actions,.scan,.or,#intakeExtra{display:none!important} .exhibit,.finding,.verdict{break-inside:avoid} }
 </style>
 </head>
@@ -200,7 +213,7 @@
   <div class="casebar">
     <div class="row">
       <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
-      <span class="pill">v0.7 · workstation</span>
+      <span class="pill">v0.7.1 · workstation</span>
       <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
       <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
@@ -254,14 +267,29 @@
 
   <!-- ════════ VIEW: BEHAVIOR ════════ -->
   <div id="view-behav" style="display:none">
-    <div class="tagline">iOS toto neexportuje ako súbor, tak dáta zadáš ručne. Modul nehľadá podpisy — hľadá <b>správanie</b>: appky aktívne na pozadí keď ich nepoužívaš, tiché odosielanie dát a povolenia ktoré appka nepotrebuje. Skóre je relatívne voči tvojim ostatným appkám (medián + MAD). Pridaj aspoň 3 appky.</div>
+    <div class="tagline">Toto iOS neexportuje do súboru, tak pár vecí o appke <b>vyklikáš ručne</b> — nemusíš poznať presné čísla, len vyber čo najviac sedí. TRACE potom nájde appku, ktorá sa <b>správa inak</b> než ostatné: beží na pozadí keď ju nepoužívaš, tíško posiela dáta, alebo má povolenia ktoré nepotrebuje. Pridaj aspoň <b>3 appky</b> (čím viac, tým presnejšie porovnanie).</div>
+
+    <div class="guide">
+      <h4>📍 KDE TIE ÚDAJE NÁJDEŠ</h4>
+      <ol>
+        <li><b>Používanie a pozadie:</b> <code>Nastavenia → Batéria</code> → klikni na appku v zozname.</li>
+        <li><b>Dáta na pozadí:</b> <code>Nastavenia → Mobilné dáta</code> → číslo pod appkou.</li>
+        <li><b>Povolenia:</b> <code>Nastavenia → (názov appky)</code> → čo má zapnuté (kamera, poloha…).</li>
+      </ol>
+    </div>
 
     <div class="exhibit"><div class="ex-body open" style="display:block;padding:16px">
-      <div style="font-family:var(--mono);font-size:12px;color:var(--signal);margin-bottom:12px">Pridať aplikáciu</div>
-      <input type="text" id="bName" placeholder="Názov appky (napr. Instagram)" style="width:100%">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-        <select id="bCat">
-          <option value="social">Sociálna sieť / chat</option>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--signal);margin-bottom:14px">PRIDAŤ APLIKÁCIU</div>
+
+      <div class="field" style="margin-top:0">
+        <div class="flabel">1 · Ktorá appka?</div>
+        <input type="text" id="bName" placeholder="napr. Instagram" style="width:100%">
+      </div>
+
+      <div class="field">
+        <div class="flabel">2 · Čo je to za appku?</div>
+        <select id="bCat" style="width:100%">
+          <option value="social">Sociálna sieť / chat (Instagram, WhatsApp…)</option>
           <option value="game">Hra</option>
           <option value="utility">Nástroj / utilita</option>
           <option value="maps">Mapy / počasie</option>
@@ -269,25 +297,47 @@
           <option value="note">Poznámky</option>
           <option value="flashlight">Baterka</option>
           <option value="calculator">Kalkulačka</option>
-          <option value="other">Iné</option>
+          <option value="other">Iné / neviem</option>
         </select>
-        <input type="number" id="bData" min="0" placeholder="dáta na pozadí (MB)">
       </div>
-      <div style="margin-top:14px">
-        <label style="font-family:var(--mono);font-size:11px;color:var(--muted)">Ako veľmi ju reálne používaš: <b id="bFgV" style="color:var(--info)">50</b></label>
-        <input id="bFg" type="range" min="0" max="100" value="50" style="width:100%;accent-color:var(--info);margin-top:4px" oninput="bFgV.textContent=this.value">
+
+      <div class="field">
+        <div class="flabel">3 · Ako často ju reálne používaš?</div>
+        <div class="seg" id="segUse">
+          <button type="button" data-v="80" onclick="pickSeg('segUse',this)">Denne</button>
+          <button type="button" data-v="40" class="on" onclick="pickSeg('segUse',this)">Občas</button>
+          <button type="button" data-v="8" onclick="pickSeg('segUse',this)">Skoro nikdy</button>
+        </div>
       </div>
-      <div style="margin-top:10px">
-        <label style="font-family:var(--mono);font-size:11px;color:var(--muted)">Aktivita na pozadí (Batéria → background %): <b id="bBgV" style="color:var(--signal)">10</b></label>
-        <input id="bBg" type="range" min="0" max="100" value="10" style="width:100%;accent-color:var(--signal);margin-top:4px" oninput="bBgV.textContent=this.value">
+
+      <div class="field">
+        <div class="flabel">4 · Beží na pozadí, aj keď ju nepoužívaš?</div>
+        <div class="hint">Pozri <code>Nastavenia → Batéria → (appka) → „Aktivita na pozadí"</code>. Ak je tam veľa aktivity hoci ju skoro neotváraš, vyber „Dosť" alebo „Stále".</div>
+        <div class="seg" id="segBg">
+          <button type="button" data-v="5" class="on" onclick="pickSeg('segBg',this)">Skoro vôbec</button>
+          <button type="button" data-v="30" onclick="pickSeg('segBg',this)">Trochu</button>
+          <button type="button" data-v="60" onclick="pickSeg('segBg',this)">Dosť</button>
+          <button type="button" data-v="88" onclick="pickSeg('segBg',this)">Stále</button>
+        </div>
       </div>
-      <div style="margin-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted)">Povolenia ktoré má zapnuté:</div>
-      <div id="bPerms" class="chips" style="margin-top:8px"></div>
-      <button class="btn btn-go" onclick="addApp()" style="margin-top:14px">+ Pridať do analýzy</button>
+
+      <div class="field">
+        <div class="flabel">5 · Koľko dát minula na pozadí? <span style="color:var(--faint);font-weight:400">(nepovinné)</span></div>
+        <div class="hint">Číslo v MB z <code>Nastavenia → Mobilné dáta</code>. Ak nevieš, nechaj prázdne.</div>
+        <input type="number" id="bData" min="0" placeholder="napr. 120" style="width:100%">
+      </div>
+
+      <div class="field">
+        <div class="flabel">6 · Aké povolenia má zapnuté?</div>
+        <div class="hint">Zaškrtni len tie, ktoré má appka naozaj povolené (<code>Nastavenia → appka</code>).</div>
+        <div id="bPerms" class="chips"></div>
+      </div>
+
+      <button class="btn btn-go" onclick="addApp()" style="margin-top:18px">+ Pridať do analýzy</button>
     </div></div>
 
     <div id="bList"></div>
-    <button class="btn btn-go" id="bAnalyze" onclick="analyzeBehav()" disabled style="margin-top:6px">Analyzovať správanie</button>
+    <button class="btn btn-go" id="bAnalyze" onclick="analyzeBehav()" disabled style="margin-top:6px">Analyzovať správanie (treba 3+ appky)</button>
     <div id="bResults"></div>
   </div>
 
@@ -913,21 +963,32 @@ function initPerms(){
     box.appendChild(l);
   }
 }
+function pickSeg(group,btn){
+  const g=$("#"+group); if(!g) return;
+  g.querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+}
+function segVal(group,def){ const on=document.querySelector("#"+group+" button.on"); return on?+on.dataset.v:def; }
+function resetSeg(group,def){ const g=$("#"+group); if(!g) return;
+  g.querySelectorAll("button").forEach(b=>b.classList.toggle("on",+b.dataset.v===def)); }
 function addApp(){
   const name=$("#bName").value.trim(); if(!name){ $("#bName").focus(); return; }
   const perms=B_PERMS.filter(p=>$("#perm_"+p)&&$("#perm_"+p).checked); perms.push("network");
-  behavApps.push({name,category:$("#bCat").value,fg:+$("#bFg").value,bg:+$("#bBg").value,data:+($("#bData").value||0),perms});
-  $("#bName").value=""; $("#bData").value=""; $("#bFg").value=50; $("#bFgV").textContent="50";
-  $("#bBg").value=10; $("#bBgV").textContent="10";
+  behavApps.push({name,category:$("#bCat").value,fg:segVal("segUse",40),bg:segVal("segBg",5),data:+($("#bData").value||0),perms});
+  $("#bName").value=""; $("#bData").value="";
+  resetSeg("segUse",40); resetSeg("segBg",5);
   B_PERMS.forEach(p=>{const c=$("#perm_"+p); if(c)c.checked=false;});
   renderAppList(); $("#bAnalyze").disabled=behavApps.length<3;
+  $("#bName").focus();
 }
 function rmApp(i){ behavApps.splice(i,1); renderAppList(); $("#bAnalyze").disabled=behavApps.length<3; }
+const USE_LABEL=v=>v>=70?"používaš denne":v>=30?"používaš občas":"skoro nepoužívaš";
+const BG_LABEL=v=>v>=80?"beží na pozadí stále":v>=50?"beží na pozadí dosť":v>=20?"trochu beží na pozadí":"na pozadí takmer nebeží";
 function renderAppList(){
   if(!behavApps.length){ $("#bList").innerHTML=""; return; }
   $("#bList").innerHTML=`<div class="sechead">Pridané appky (${behavApps.length})</div>`+
     behavApps.map((a,i)=>`<div class="finding" style="display:flex;justify-content:space-between;align-items:center">
-      <div><span class="fname">${escapeHtml(a.name)}</span><div class="fmeta">${a.category} · používanie ${a.fg} · pozadie ${a.bg}% · ${a.data}MB · ${a.perms.filter(p=>p!=="network").join(",")||"žiadne extra perm"}</div></div>
+      <div><span class="fname">${escapeHtml(a.name)}</span><div class="fmeta">${USE_LABEL(a.fg)} · ${BG_LABEL(a.bg)}${a.data?` · ${a.data} MB dát`:""}${a.perms.filter(p=>p!=="network").length?` · povolenia: ${a.perms.filter(p=>p!=="network").join(", ")}`:""}</div></div>
       <button class="btn btn-ghost" style="padding:6px 10px" onclick="rmApp(${i})">✕</button></div>`).join("");
 }
 function bMad(vals){ const s=[...vals].sort((a,b)=>a-b); const med=s[Math.floor(s.length/2)];
