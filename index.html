@@ -167,7 +167,7 @@
   <div class="head">
     <div class="brand">
       <span class="logo">TRA<b>CE</b></span>
-      <span class="ver">v0.2 · offline forensics</span>
+      <span class="ver">v0.3 · offline forensics</span>
     </div>
     <div class="tagline">Vygeneruj si na iPhone <b>sysdiagnose</b>, hoď ho sem. Hľadá verejne známe indikátory spyware (Pegasus, Predator a spol.) a podozrivé vzory v systémových logoch.</div>
     <span class="privacy"><span class="dot"></span> 100&nbsp;% beží v tvojom prehliadači — nič sa nikam nenahráva</span>
@@ -178,34 +178,36 @@
     <div class="drop" id="drop">
       <div class="ico">🗄️</div>
       <div class="big">Vybrať sysdiagnose</div>
-      <div class="sub">.tar.gz archív — alebo rozbalený priečinok / stovky jednotlivých súborov (shutdown.log, .ips crash logy). Zvládne <b>600+ súborov naraz</b>; binárky, médiá a .ipsw firmware sa automaticky preskočia.</div>
+      <div class="sub">Najjednoduchšie: nahraj <b>jeden súbor</b> — celý sysdiagnose <code>.tar.gz</code> z iPhonu. Appka ho sama rozbalí priamo v prehliadači. Zvládne aj stovky jednotlivých súborov naraz; <code>.ipsw</code> firmware, fotky a videá sa automaticky preskočia.</div>
     </div>
     <input type="file" id="file" hidden multiple>
     <input type="file" id="folder" hidden multiple webkitdirectory>
-    <div style="text-align:center;margin:-4px 0 14px"><a href="#" id="pickFolder" style="color:var(--info);font-size:12.5px;font-family:var(--mono);text-decoration:none">📁 alebo vybrať celý rozbalený priečinok sysdiagnose</a></div>
+    <div style="text-align:center;margin:-4px 0 14px"><a href="#" id="pickFolder" style="color:var(--info);font-size:12.5px;font-family:var(--mono);text-decoration:none">📁 vybrať celý rozbalený priečinok (funguje na počítači)</a></div>
+
+    <details class="howto" open>
+      <summary>📱 Ako to celé spraviť na mobile (bez počítača)</summary>
+      <div class="body">
+        <p style="margin-top:0">Áno — dá sa to celé na iPhone, žiadny počítač netreba. Stačí nahrať <b>ten jeden veľký súbor</b>, appka si ho sama rozbalí. Postup:</p>
+        <ol>
+          <li><b>Vytvor sysdiagnose:</b> naraz stlač <b>obe tlačidlá hlasitosti + bočné (zapínacie) tlačidlo</b> asi na 1 sekundu (telefón krátko cukne). Na pozadí sa ~10 minút pripravuje.</li>
+          <li>Choď do <code>Nastavenia → Súkromie a bezpečnosť → Analytické údaje a vylepšenia → Analytické údaje</code>.</li>
+          <li>Nájdi položku <code>sysdiagnose_…tar.gz</code>, ťukni na ňu, vpravo hore daj <b>Zdieľať</b> (štvorček so šípkou) → <b>Uložiť do Súborov</b> (napr. „Na mojom iPhone").</li>
+          <li><b style="color:var(--signal)">Dôležité (kvôli chybe „neúplný"):</b> otvor appku <b>Súbory</b>, ťukni na ten <code>.tar.gz</code> a počkaj, kým sa <b>úplne stiahne</b> — nesmie pri ňom byť ikonka mráčika ☁️. Ak nie je stiahnutý celý, nahrá sa len kúsok a vypíše to chybu.</li>
+          <li>Sem hore ťukni na <b>„Vybrať sysdiagnose"</b>, daj <b>Prehliadať</b>, nájdi ten jeden <code>.tar.gz</code> a vyber ho. To je všetko. ✅</li>
+        </ol>
+        <p style="color:var(--faint);font-size:12px">Chceš vybrať viac súborov naraz? V okne Súborov ťukni vpravo hore <b>Vybrať</b>, označ ich a daj <b>Otvoriť</b>. (Celý priečinok sa na iPhone vybrať nedá — preto je najlepšie nahrať ten jeden <code>.tar.gz</code>.)</p>
+      </div>
+    </details>
 
     <div class="or">alebo vlož text ručne</div>
     <textarea id="paste" placeholder="Sem môžeš vložiť obsah shutdown.log alebo iného logu, ak sa archív nedá nahrať z mobilu…"></textarea>
     <button class="btn btn-go" id="goPaste" disabled>Analyzovať vložený text</button>
 
     <details class="iocbox howto">
-      <summary>Pridať vlastné IOC indikátory (voliteľné)</summary>
+      <summary>Pridať vlastné IOC indikátory (pre pokročilých, voliteľné)</summary>
       <div class="body">
         <label>Domény / procesy / cesty — jeden na riadok. Aktuálne zoznamy: Amnesty Tech a Citizen Lab (GitHub).</label>
         <textarea id="ioc" placeholder="napr.&#10;some-c2-domain.com&#10;suspiciousprocd"></textarea>
-      </div>
-    </details>
-
-    <details class="howto">
-      <summary>Ako spraviť sysdiagnose na iPhone</summary>
-      <div class="body">
-        <ol>
-          <li>Stlač naraz <b>obe tlačidlá hlasitosti + bočné tlačidlo</b> na ~1 sekundu (telefón krátko cukne). Generovanie beží ~10 minút na pozadí.</li>
-          <li>Choď do <code>Nastavenia → Súkromie a bezpečnosť → Analytické údaje</code>.</li>
-          <li>Nájdi položku <code>sysdiagnose_…</code>, otvor ju, vpravo hore <b>Zdieľať</b> → <b>Uložiť do Súborov</b>.</li>
-          <li>Tu klikni „Vybrať sysdiagnose" a vyber ten súbor zo Súborov.</li>
-        </ol>
-        <p style="color:var(--faint);font-size:12px">Veľký archív (stovky MB) môže byť na mobile pomalý. Ak to padá, rozbaľ ho na inom zariadení a nahraj sem len <code>shutdown.log</code> a priečinok crash logov — alebo vlož text vyššie.</p>
       </div>
     </details>
 
@@ -441,14 +443,17 @@ async function parseTarGz(stream, onFile, onProgress){
     }
   };
 
+  let truncated=false;
   while(!done){
-    const {value,done:rdDone}=await reader.read();
+    let value, rdDone;
+    try{ ({value,done:rdDone}=await reader.read()); }
+    catch(e){ truncated=true; break; } // partial / corrupt gzip — keep everything parsed so far
     if(rdDone) break;
     bytesIn+=value.length; q.push(value);
     if(onProgress) onProgress(bytesIn,fileCount);
     pump();
   }
-  return fileCount;
+  return {count:fileCount, truncated};
 }
 
 /* ════════════════ detection engines ════════════════ */
@@ -637,7 +642,7 @@ async function run(files){
 
   const results={};
   for(const m of modules){
-    const ln=line("run","▸",`Exhibit ${m.no} · ${m.name} <span class="blink"></span>`);
+    const ln=line("run","▸",`Krok ${m.no} · ${m.name} <span class="blink"></span>`);
     await sleep(reduceMotion?0:380);
     let res;
     if(m.fn) res=m.fn(files); else res=m.run();
@@ -646,10 +651,10 @@ async function run(files){
     const hits=f.filter(x=>x.sev==="hit").length;
     const revs=f.filter(x=>x.sev==="rev").length;
     ln.querySelector(".blink")?.remove();
-    if(res.nodata){ ln.className="ln"; ln.querySelector(".tag").textContent="–"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — žiadne dáta v archíve`; }
-    else if(hits){ ln.className="ln hit"; ln.querySelector(".tag").textContent="✕"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — <b>${hits} zhoda(y) so známym IOC</b>`; }
-    else if(revs){ ln.className="ln warn"; ln.querySelector(".tag").textContent="!"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — ${revs} na kontrolu`; }
-    else{ ln.className="ln ok"; ln.querySelector(".tag").textContent="✓"; ln.querySelector(".msg").innerHTML=`Exhibit ${m.no} · ${m.name} — čisté`; }
+    if(res.nodata){ ln.className="ln"; ln.querySelector(".tag").textContent="–"; ln.querySelector(".msg").innerHTML=`Krok ${m.no} · ${m.name} — súbor pre tento krok chýbal (nie je to nález)`; }
+    else if(hits){ ln.className="ln hit"; ln.querySelector(".tag").textContent="✕"; ln.querySelector(".msg").innerHTML=`Krok ${m.no} · ${m.name} — <b>${hits} zhoda(y) so známym IOC</b>`; }
+    else if(revs){ ln.className="ln warn"; ln.querySelector(".tag").textContent="!"; ln.querySelector(".msg").innerHTML=`Krok ${m.no} · ${m.name} — ${revs} na kontrolu`; }
+    else{ ln.className="ln ok"; ln.querySelector(".tag").textContent="✓"; ln.querySelector(".msg").innerHTML=`Krok ${m.no} · ${m.name} — čisté`; }
   }
   await sleep(300);
   line("run","›","Analýza dokončená. Generujem report.");
@@ -680,14 +685,33 @@ function render(R, fileCount){
     <div class="score"><span>súborov: <b>${fileCount}</b></span><span>IOC zhody: <b>${totalHits}</b></span><span>na kontrolu: <b>${totalRev}</b></span></div>
   </div>`;
 
+  // plain-language legend so the report is readable without forensic knowledge
+  html+=`<div style="border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:var(--muted);line-height:1.7">
+    <b style="color:var(--text)">Ako tomuto reportu rozumieť:</b><br>
+    <span style="color:var(--ok);font-family:var(--mono)">● čisté</span> = nič podozrivé, všetko v poriadku.<br>
+    <span style="color:var(--signal);font-family:var(--mono)">● na kontrolu</span> = niečo trochu nezvyčajné, ale <b>väčšinou neškodné</b> (bežná appka/profil). Len si to pozri.<br>
+    <span style="color:var(--alert);font-family:var(--mono)">● IOC zhoda</span> = našla sa zhoda so známym spyware. Ešte to <b>nie je dôkaz</b>, ale ber to vážne.<br>
+    <span style="color:var(--faint);font-family:var(--mono)">● bez dát</span> = chýbal súbor, ktorý tento modul potrebuje. <b>NIE je to nález</b> — len sa nedalo skontrolovať.
+  </div>`;
+
+  const PLAIN={
+    signatures:"Po ľudsky: porovná názvy procesov a webových adries v tvojich logoch s verejným zoznamom známeho spyware. Zhoda = pozor, žiadna zhoda = nič známe sa nenašlo.",
+    shutdown:"Po ľudsky: spyware Pegasus sa pri vypínaní telefónu „drží” a bráni vypnutiu. Tento modul taký vzor hľadá. Novší iOS tento súbor často vôbec nerobí, takže „bez dát” je tu bežné.",
+    crashes:"Po ľudsky: keď nejaký program opakovane „padá” (seká sa a vypne), môže (ale nemusí) to byť stopa po pokuse zneužiť chybu v systéme. Pár pádov je úplne normálnych.",
+    processes:"Po ľudsky: kontroluje, či nejaký program nebeží zo skrytého alebo dočasného priečinka, kam bežné appky nepatria.",
+    profiles:"Po ľudsky: „profil” je nastavenie, ktoré dokáže telefón sledovať alebo ovládať (napr. od firmy či školy). Vypíše tie, ktoré nie sú priamo od Apple.",
+    network:"Po ľudsky: pozerá, či telefón nekomunikoval so servermi známymi pre spyware.",
+    timeline:"Po ľudsky: poskladá časy udalostí (hlavne pádov) za sebou, aby bolo vidno, čo sa dialo a kedy."
+  };
+
   const meta={
-    signatures:{no:"02",name:"Známe indikátory (IOC)",desc:"Prehľadáva všetky textové súbory v zázname proti zoznamu známych procesov a domén spyware (Pegasus, Predator). Seed pochádza z výskumu Amnesty International a Citizen Lab."},
-    shutdown:{no:"03",name:"Analýza shutdown.log",desc:"Metóda Amnesty International: spyware ako Pegasus opakovane bráni procesom vypnúť sa pri reštarte. Hľadá procesy, ktoré sa pri vypínaní objavujú dokola a bežia z neštandardných ciest."},
-    crashes:{no:"04",name:"Pády a spindumpy",desc:"Spyware exploity často nechávajú stopy v crash logoch. Zoskupuje pády podľa procesu a označí neznáme procesy s opakovanými pádmi."},
-    processes:{no:"05",name:"Bežiace procesy",desc:"Procesy bežiace z dočasných alebo skrytých umiestnení (napr. /private/var/tmp) sú podozrivé — legitímne appky tam nebežia."},
-    profiles:{no:"06",name:"Konfiguračné profily",desc:"MDM a profily tretích strán môžu monitorovať alebo riadiť zariadenie. Vypíše profily, ktoré nie sú od Apple."},
-    network:{no:"07",name:"Sieťové artefakty",desc:"Kontroluje dátové/sieťové databázy proti známym IOC doménam a procesom."},
-    timeline:{no:"08",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi, aby sa dali korelovať podozrivé veci v čase."}
+    signatures:{no:"02",name:"Známe indikátory (IOC)",desc:"Prehľadáva všetky textové súbory v zázname proti zoznamu známych procesov a domén spyware (Pegasus, Predator). Seed pochádza z výskumu Amnesty International a Citizen Lab.",needs:"akékoľvek textové logy zo sysdiagnose (toto väčšinou dáta má)."},
+    shutdown:{no:"03",name:"Analýza shutdown.log",desc:"Metóda Amnesty International: spyware ako Pegasus opakovane bráni procesom vypnúť sa pri reštarte. Hľadá procesy, ktoré sa pri vypínaní objavujú dokola a bežia z neštandardných ciest.",needs:"súbor <code>shutdown.log</code>. Pozor: novší iOS ho často vôbec nevytvára — jeho absencia je úplne normálna a NIE je to zlá správa."},
+    crashes:{no:"04",name:"Pády a spindumpy",desc:"Spyware exploity často nechávajú stopy v crash logoch. Zoskupuje pády podľa procesu a označí neznáme procesy s opakovanými pádmi.",needs:"crash logy <code>.ips</code> / <code>.crash</code> (toto si nahral, preto tu dáta sú)."},
+    processes:{no:"05",name:"Bežiace procesy",desc:"Procesy bežiace z dočasných alebo skrytých umiestnení (napr. /private/var/tmp) sú podozrivé — legitímne appky tam nebežia.",needs:"súbor <code>ps.txt</code> (zoznam bežiacich procesov). Je vo vnútri plného sysdiagnose archívu."},
+    profiles:{no:"06",name:"Konfiguračné profily",desc:"MDM a profily tretích strán môžu monitorovať alebo riadiť zariadenie. Vypíše profily, ktoré nie sú od Apple.",needs:"konfiguračné profily (<code>.mobileconfig</code>). Ak nemáš nainštalované žiadne firemné/MDM profily, je úplne normálne že tu nič nie je."},
+    network:{no:"07",name:"Sieťové artefakty",desc:"Kontroluje dátové/sieťové databázy proti známym IOC doménam a procesom.",needs:"databázy <code>datausage.sqlite</code> / <code>networkstatistics</code> so sieťovou aktivitou appiek. Sú vo vnútri plného sysdiagnose archívu."},
+    timeline:{no:"08",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi, aby sa dali korelovať podozrivé veci v čase.",needs:"crash logy s časovými značkami (toto si nahral)."}
   };
   const order=["signatures","shutdown","crashes","processes","profiles","network","timeline"];
 
@@ -702,8 +726,13 @@ function render(R, fileCount){
     else{stat="čisté";statCls="s-ok";}
 
     let body=`<p class="desc">${m.desc}</p>`;
+    if(PLAIN[key]) body+=`<div style="background:var(--panel2);border-left:3px solid var(--info);border-radius:6px;padding:9px 12px;margin:0 0 12px;font-size:12.5px;color:var(--text);line-height:1.6">${PLAIN[key]}</div>`;
     if(res.nodata){
-      body+=`<div style="color:var(--faint);font-size:12px">Tento typ dát nebol v nahranom zázname. Pre kompletnú analýzu nahraj plný sysdiagnose archív.</div>`;
+      body+=`<div style="border:1px solid #2a3a26;background:#16201a;border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.65">
+        <div style="color:var(--ok);font-weight:600;margin-bottom:6px">ℹ️ Toto NIE je nález — len chýbal súbor</div>
+        <div style="color:var(--muted);margin-bottom:6px"><b style="color:var(--text)">Čo tento modul potrebuje:</b> ${m.needs||"špecifické systémové súbory zo sysdiagnose."}</div>
+        <div style="color:var(--muted)"><b style="color:var(--text)">Ako to doplniť:</b> tieto súbory sú vo vnútri plného <b>sysdiagnose .tar.gz</b>. Stačí nahrať ten <b>jeden archív celý</b> (pozri návod „📱 Ako dostať všetko cez mobil" na úvodnej obrazovke) a modul sa sám doplní.</div>
+      </div>`;
     } else if(key==="timeline"){
       if(res.events.length){
         body+=`<div class="tl">`+res.events.map(e=>`<div class="t-row"><span class="t-time">${e.t}</span><span class="t-desc">${e.d}</span></div>`).join("")+`</div>`;
@@ -719,6 +748,7 @@ function render(R, fileCount){
     }
     // extra tables
     if(key==="crashes"&&res.rows&&res.rows.length){
+      body+=`<div style="font-size:12px;color:var(--muted);margin:12px 0 6px;line-height:1.6">Tu je prehľad, čo na telefóne najčastejšie padalo. <b style="color:var(--text)">Vysoké čísla pri známych Apple procesoch</b> (napr. <code>SiriSearchFeedback</code>, <code>logd</code>, <code>kernel_task</code>) sú <b>úplne normálne</b> — to nie je spyware. Podozrivé sú skôr <b style="color:var(--text)">neznáme názvy</b> s opakovanými pádmi, tie sme prípadne označili vyššie ako „na kontrolu".</div>`;
       body+=`<table><tr><th>proces</th><th>počet pádov</th></tr>`+res.rows.slice(0,15).map(r=>`<tr><td><b>${escapeHtml(r[0])}</b></td><td>${r[1]}</td></tr>`).join("")+`</table>`;
     }
 
@@ -742,7 +772,7 @@ function render(R, fileCount){
   </div>`;
 
   $("#report").innerHTML=html;
-  window.__report={generated:new Date().toISOString(), version:"0.2", fileCount, results:R};
+  window.__report={generated:new Date().toISOString(), version:"0.3", fileCount, results:R};
   $("#report").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
 
@@ -796,20 +826,36 @@ async function handleFiles(fileList){
   line("run","›",`Prijatých <b>${arr.length}</b> položiek — ${archives.length} archív(ov), ${loose.length} samostatných súborov`);
   await sleep(150);
 
-  // 1) every archive, streamed (memory-safe)
+  // 1) every archive. Read the whole blob into memory first when feasible —
+  // on iOS, streaming a not-fully-downloaded iCloud file yields partial reads
+  // ("Incomplete compressed input"); a full ArrayBuffer avoids that.
   for(const archive of archives){
     const pl=line("run","▸",`Rozbaľujem ${escapeHtml(archive.name)} <span class="blink"></span>`);
     try{
       const before=collected.length;
-      await parseTarGz(archive.stream(), (name,text)=>collected.push([name,text]),
+      let stream;
+      if(archive.size && archive.size < 380*1024*1024){
+        try{ stream=new Response(await archive.arrayBuffer()).body; }
+        catch(e){ stream=archive.stream(); }
+      } else stream=archive.stream();
+      const res=await parseTarGz(stream, (name,text)=>collected.push([name,text]),
         (bytes,fc)=>{ pl.querySelector(".msg").innerHTML=`Rozbaľujem ${escapeHtml(archive.name)} — ${(bytes/1048576).toFixed(0)} MB, ${fc} súborov <span class="blink"></span>`; });
+      const got=collected.length-before;
       pl.querySelector(".blink")?.remove();
-      pl.className="ln ok"; pl.querySelector(".tag").textContent="✓";
-      pl.querySelector(".msg").innerHTML=`Rozbalené ${escapeHtml(archive.name)} — ${collected.length-before} relevantných súborov`;
+      if(res.truncated && got===0){
+        pl.className="ln warn"; pl.querySelector(".tag").textContent="!";
+        pl.querySelector(".msg").innerHTML=`Archív <b>${escapeHtml(archive.name)}</b> sa nahral len čiastočne, nedal sa otvoriť. <b>Najčastejšia príčina:</b> súbor nebol z iCloudu úplne stiahnutý. Otvor appku Súbory, ťukni naň, počkaj kým zmizne ikonka ☁️, a skús znova.`;
+      } else if(res.truncated){
+        pl.className="ln warn"; pl.querySelector(".tag").textContent="!";
+        pl.querySelector(".msg").innerHTML=`Archív ${escapeHtml(archive.name)} bol neúplný, ale podarilo sa prečítať <b>${got}</b> súborov. Pre 100% výsledok ho nahraj znova celý (v Súboroch počkaj na úplné stiahnutie).`;
+      } else {
+        pl.className="ln ok"; pl.querySelector(".tag").textContent="✓";
+        pl.querySelector(".msg").innerHTML=`Rozbalené ${escapeHtml(archive.name)} — ${got} relevantných súborov`;
+      }
     }catch(e){
       pl.querySelector(".blink")?.remove();
-      pl.className="ln hit"; pl.querySelector(".tag").textContent="✕";
-      pl.querySelector(".msg").innerHTML=`Archív ${escapeHtml(archive.name)} sa nepodarilo rozbaliť: ${escapeHtml(e.message)}`;
+      pl.className="ln warn"; pl.querySelector(".tag").textContent="!";
+      pl.querySelector(".msg").innerHTML=`Archív ${escapeHtml(archive.name)} sa nedal otvoriť (${escapeHtml(e.message)}). Skús ho v Súboroch najprv úplne stiahnuť (bez ikonky ☁️) a nahraj znova.`;
     }
   }
 
