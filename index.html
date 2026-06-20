@@ -167,7 +167,7 @@
   <div class="head">
     <div class="brand">
       <span class="logo">TRA<b>CE</b></span>
-      <span class="ver">v0.1 · offline forensics</span>
+      <span class="ver">v0.2 · offline forensics</span>
     </div>
     <div class="tagline">Vygeneruj si na iPhone <b>sysdiagnose</b>, hoď ho sem. Hľadá verejne známe indikátory spyware (Pegasus, Predator a spol.) a podozrivé vzory v systémových logoch.</div>
     <span class="privacy"><span class="dot"></span> 100&nbsp;% beží v tvojom prehliadači — nič sa nikam nenahráva</span>
@@ -178,9 +178,11 @@
     <div class="drop" id="drop">
       <div class="ico">🗄️</div>
       <div class="big">Vybrať sysdiagnose</div>
-      <div class="sub">.tar.gz archív — alebo jednotlivé súbory (shutdown.log, .ips crash logy)</div>
+      <div class="sub">.tar.gz archív — alebo rozbalený priečinok / stovky jednotlivých súborov (shutdown.log, .ips crash logy). Zvládne <b>600+ súborov naraz</b>; binárky, médiá a .ipsw firmware sa automaticky preskočia.</div>
     </div>
     <input type="file" id="file" hidden multiple>
+    <input type="file" id="folder" hidden multiple webkitdirectory>
+    <div style="text-align:center;margin:-4px 0 14px"><a href="#" id="pickFolder" style="color:var(--info);font-size:12.5px;font-family:var(--mono);text-decoration:none">📁 alebo vybrať celý rozbalený priečinok sysdiagnose</a></div>
 
     <div class="or">alebo vlož text ručne</div>
     <textarea id="paste" placeholder="Sem môžeš vložiť obsah shutdown.log alebo iného logu, ak sa archív nedá nahrať z mobilu…"></textarea>
@@ -740,7 +742,7 @@ function render(R, fileCount){
   </div>`;
 
   $("#report").innerHTML=html;
-  window.__report={generated:new Date().toISOString(), fileCount, results:R};
+  window.__report={generated:new Date().toISOString(), version:"0.2", fileCount, results:R};
   $("#report").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
 
@@ -763,37 +765,87 @@ function readIOCs(){
   }
 }
 
+/* file triage — what to even open. Sysdiagnose dumps mix logs with firmware
+   (.ipsw), images and DB blobs; reading those as text would freeze the tab,
+   so we skip them up front and only read logs / configs / small unknowns. */
+const ARCHIVE_RE     = /\.(tar\.gz|tgz|gz|tar)$/i;
+const HARD_BINARY_RE = /\.(ipsw|dmg|zip|aar|bz2|xz|7z|rar|img|iso|jpe?g|png|heic|heif|gif|webp|bmp|tiff?|icns|mov|mp4|m4v|m4a|aac|caf|mp3|wav|flac|ttf|otf|woff2?|pdf|p12|pfx|cer|der|mobileprovision|car|nib|dylib|so)$/i;
+const TEXTY_RE       = /\.(txt|log|ips|crash|panic|spin|plist|json|stub|state|synced|md|csv|xml|conf|cfg|mobileconfig|ini|ya?ml|tasks|out|diag)$/i;
+
+function shouldRead(f){
+  const name=f.name||"";
+  if(ARCHIVE_RE.test(name)) return false;       // handled separately
+  if(HARD_BINARY_RE.test(name)) return false;   // firmware / media / fonts / images
+  const interesting=isInteresting(name);
+  if(f.size>60*1024*1024) return interesting && f.size<120*1024*1024; // huge: only if clearly relevant
+  return interesting || TEXTY_RE.test(name) || f.size<6*1024*1024;    // small unknowns are cheap to scan
+}
+
 async function handleFiles(fileList){
   readIOCs();
   const arr=[...fileList];
   if(!arr.length) return;
-  const archive=arr.find(f=>/\.(tar\.gz|tgz|gz|tar)$/i.test(f.name));
+
+  $("#intake").style.display="none";
+  consoleEl.style.display="block"; consoleEl.innerHTML="";
+
+  const archives=arr.filter(f=>ARCHIVE_RE.test(f.name));
+  const loose   =arr.filter(f=>!ARCHIVE_RE.test(f.name));
   const collected=[];
 
-  if(archive){
-    $("#intake").style.display="none";
-    consoleEl.style.display="block"; consoleEl.innerHTML="";
-    const pl=line("run","▸",`Rozbaľujem ${archive.name} <span class="blink"></span>`);
+  line("run","›",`Prijatých <b>${arr.length}</b> položiek — ${archives.length} archív(ov), ${loose.length} samostatných súborov`);
+  await sleep(150);
+
+  // 1) every archive, streamed (memory-safe)
+  for(const archive of archives){
+    const pl=line("run","▸",`Rozbaľujem ${escapeHtml(archive.name)} <span class="blink"></span>`);
     try{
-      const n=await parseTarGz(archive.stream(), (name,text)=>collected.push([name,text]),
-        (bytes,fc)=>{ pl.querySelector(".msg").innerHTML=`Rozbaľujem ${archive.name} — ${(bytes/1048576).toFixed(0)} MB, ${fc} súborov <span class="blink"></span>`; });
+      const before=collected.length;
+      await parseTarGz(archive.stream(), (name,text)=>collected.push([name,text]),
+        (bytes,fc)=>{ pl.querySelector(".msg").innerHTML=`Rozbaľujem ${escapeHtml(archive.name)} — ${(bytes/1048576).toFixed(0)} MB, ${fc} súborov <span class="blink"></span>`; });
       pl.querySelector(".blink")?.remove();
       pl.className="ln ok"; pl.querySelector(".tag").textContent="✓";
-      pl.querySelector(".msg").innerHTML=`Rozbalené — ${collected.length} relevantných súborov`;
+      pl.querySelector(".msg").innerHTML=`Rozbalené ${escapeHtml(archive.name)} — ${collected.length-before} relevantných súborov`;
     }catch(e){
+      pl.querySelector(".blink")?.remove();
       pl.className="ln hit"; pl.querySelector(".tag").textContent="✕";
-      pl.querySelector(".msg").innerHTML="Archív sa nepodarilo rozbaliť: "+escapeHtml(e.message)+". Skús rozbaliť na inom zariadení a nahrať jednotlivé súbory.";
-      return;
+      pl.querySelector(".msg").innerHTML=`Archív ${escapeHtml(archive.name)} sa nepodarilo rozbaliť: ${escapeHtml(e.message)}`;
     }
-  } else {
-    // individual files
-    for(const f of arr){ const t=await f.text(); collected.push([f.name,t]); }
+  }
+
+  // 2) loose files — skip binaries / firmware / media, read the rest with progress
+  if(loose.length){
+    const pl=line("run","▸",`Čítam samostatné súbory <span class="blink"></span>`);
+    let read=0, skipped=0;
+    for(let i=0;i<loose.length;i++){
+      const f=loose[i];
+      if(!shouldRead(f)){ skipped++; }
+      else{
+        try{ const t=await f.text(); collected.push([f.name,t]); read++; }
+        catch(e){ skipped++; }
+      }
+      if(i%25===0 || i===loose.length-1){
+        pl.querySelector(".msg").innerHTML=`Čítam samostatné súbory — ${i+1}/${loose.length} (${read} načítaných, ${skipped} preskočených) <span class="blink"></span>`;
+        await sleep(0); // yield so the UI/progress stays alive on hundreds of files
+      }
+    }
+    pl.querySelector(".blink")?.remove();
+    pl.className="ln ok"; pl.querySelector(".tag").textContent="✓";
+    pl.querySelector(".msg").innerHTML=`Súbory spracované — ${read} načítaných, ${skipped} preskočených (binárky / médiá / firmware)`;
+  }
+
+  if(!collected.length){
+    line("hit","✕","Nenašli sa žiadne čitateľné logy. Nahraj sysdiagnose .tar.gz alebo rozbalený priečinok (shutdown.log, crash logy, ps.txt…).");
+    return;
   }
   await run(collected);
 }
 
 $("#drop").addEventListener("click",()=>$("#file").click());
 $("#file").addEventListener("change",e=>handleFiles(e.target.files));
+const pickFolderEl=$("#pickFolder");
+if(pickFolderEl) pickFolderEl.addEventListener("click",e=>{e.preventDefault();$("#folder").click();});
+$("#folder").addEventListener("change",e=>handleFiles(e.target.files));
 ["dragover","dragenter"].forEach(ev=>$("#drop").addEventListener(ev,e=>{e.preventDefault();$("#drop").classList.add("over");}));
 ["dragleave","drop"].forEach(ev=>$("#drop").addEventListener(ev,e=>{e.preventDefault();$("#drop").classList.remove("over");}));
 $("#drop").addEventListener("drop",e=>{ if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
