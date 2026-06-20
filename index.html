@@ -216,7 +216,7 @@
   <div class="casebar">
     <div class="row">
       <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
-      <span class="pill">v0.7.1 · workstation</span>
+      <span class="pill">v0.7.2 · workstation</span>
       <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
       <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
@@ -489,14 +489,17 @@ async function parseTarGz(stream, onFile, onProgress){
       }
     }
   };
+  let truncated=false;
   while(!done){
-    const {value,done:rdDone}=await reader.read();
-    if(rdDone) break;
-    bytesIn+=value.length; q.push(value);
+    let rd;
+    try{ rd=await reader.read(); }
+    catch(e){ truncated=true; break; } // incomplete gzip — keep what we already parsed
+    if(rd.done) break;
+    bytesIn+=rd.value.length; q.push(rd.value);
     if(onProgress) onProgress(bytesIn,fileCount,seen);
     pump();
   }
-  return {kept:fileCount, total:seen, bytes:bytesIn};
+  return {kept:fileCount, total:seen, bytes:bytesIn, truncated};
 }
 
 /* ════════════════ detection helpers ════════════════ */
@@ -910,19 +913,31 @@ async function handleFiles(fileList){
   const collected=[];
   if(archive){
     buildDashboard();
-    phaseEl.textContent="rozbaľujem archív"; headSpin.style.display="inline-block";
-    const pl=line("run","▸",`Rozbaľujem ${escapeHtml(archive.name)} <span class="blink"></span>`);
+    phaseEl.textContent="načítavam archív"; headSpin.style.display="inline-block";
+    const pl=line("run","▸",`Načítavam ${escapeHtml(archive.name)} — čakám na úplné stiahnutie z iCloudu… <span class="blink"></span>`);
+    // Pre-buffer the whole file first: forces iCloud to finish downloading so the
+    // gzip stream isn't cut off mid-way ("Incomplete compressed input").
+    let source;
+    try{ const buf=await archive.arrayBuffer(); source=new Blob([buf]).stream(); }
+    catch(e){ source=archive.stream(); }
+    let r;
     try{
-      const r=await parseTarGz(archive.stream(), (name,text)=>collected.push([name,text]),
+      r=await parseTarGz(source, (name,text)=>collected.push([name,text]),
         (bytes,fc,seen)=>{ M.files=fc; M.bytes=bytes; if(mFiles){mFiles.textContent=fmt(fc);mBytes.textContent=bytesH(bytes);}
           pl.querySelector(".msg").innerHTML=`Rozbaľujem ${escapeHtml(archive.name)} — ${bytesH(bytes)} · ${fmt(seen)} položiek, ${fmt(fc)} relevantných <span class="blink"></span>`; });
-      pl.querySelector(".blink")?.remove();
+    }catch(e){ r={truncated:true, total:0, bytes:0}; }
+    pl.querySelector(".blink")?.remove();
+    if(!collected.length){
+      pl.className="ln hit"; pl.querySelector(".tag").textContent="✕";
+      pl.querySelector(".msg").innerHTML="Archív sa nepodarilo rozbaliť (súbor je pravdepodobne neúplne stiahnutý). <b>Otvor ho najprv v appke Súbory</b> (ťukni naň, počkaj kým sa stiahne z iCloudu), až potom ho nahraj sem. Alebo nahraj jednotlivé súbory (shutdown.log, crash logy).";
+      headSpin.style.display="none"; return;
+    }
+    if(r.truncated){
+      pl.className="ln warn"; pl.querySelector(".tag").textContent="!";
+      pl.querySelector(".msg").innerHTML=`Archív bol neúplný, ale podarilo sa zachrániť <b>${fmt(collected.length)}</b> súborov — analyzujem ich. Pre úplný sken otvor súbor najprv v appke Súbory (nech sa celý stiahne z iCloudu).`;
+    } else {
       pl.className="ln ok"; pl.querySelector(".tag").textContent="✓";
       pl.querySelector(".msg").innerHTML=`Rozbalené — <b>${fmt(collected.length)}</b> relevantných z ${fmt(r.total)} súborov (${bytesH(r.bytes)})`;
-    }catch(e){
-      pl.className="ln hit"; pl.querySelector(".tag").textContent="✕";
-      pl.querySelector(".msg").innerHTML="Archív sa nepodarilo rozbaliť: "+escapeHtml(e.message)+". Skús rozbaliť inde a nahrať jednotlivé súbory.";
-      headSpin.style.display="none"; return;
     }
   } else {
     for(const f of arr){ const t=await f.text(); collected.push([f.name,t]); }
