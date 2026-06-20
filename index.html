@@ -200,7 +200,7 @@
   <div class="casebar">
     <div class="row">
       <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
-      <span class="pill">v0.6 · workstation</span>
+      <span class="pill">v0.7 · workstation</span>
       <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
       <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
@@ -215,7 +215,7 @@
 
   <!-- ════════ VIEW: SYSDIAGNOSE ════════ -->
   <div id="view-sys">
-    <div class="tagline">Vygeneruj na iPhone <b>sysdiagnose</b> a hoď ho sem. TRACE spustí <b>hĺbkový sken</b> — prejde každý textový artefakt v archíve, vyhľadá verejne známe indikátory spyware (Pegasus, Predator) a podozrivé vzory v logoch. Reálne čísla skenu uvidíš naživo.</div>
+    <div class="tagline">Vygeneruj na iPhone <b>sysdiagnose</b> a hoď ho sem. TRACE spustí <b>hĺbkový sken</b> — prejde každý textový artefakt v archíve. Okrem známych indikátorov (Pegasus, Predator) používa aj <b>vlastné signatureless heuristiky</b>: impostor démonov a odchýlky od Apple konvencií, ktoré odhalia aj nezdokumentovanú hrozbu. Reálne čísla skenu uvidíš naživo.</div>
 
     <div class="drop" id="drop">
       <div class="ico">🗄️</div>
@@ -458,6 +458,16 @@ function contextAround(text, token){
   return (a>0?"…":"")+text.slice(a,b).replace(/\s+/g," ").trim()+(b<text.length?"…":"");
 }
 function entropyStr(s){ if(!s)return 0; const f={}; for(const c of s)f[c]=(f[c]||0)+1; let e=0; for(const c in f){const p=f[c]/s.length; e-=p*Math.log2(p);} return e; }
+/* capped Levenshtein — used for daemon impostor / typosquatting detection */
+function editDistance(a,b,max){
+  if(Math.abs(a.length-b.length)>max) return max+1;
+  const n=b.length; let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){ const cur=[i]; let best=i;
+    for(let j=1;j<=n;j++){ const cost=a[i-1]===b[j-1]?0:1;
+      const v=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost); cur[j]=v; if(v<best)best=v; }
+    if(best>max) return max+1; prev=cur; }
+  return prev[n];
+}
 function sld(h){ const p=h.split("."); return p.length>=2?p[p.length-2]:h; }
 
 /* global scan metrics (real counts) */
@@ -595,6 +605,41 @@ Engines.artifacts = (files) => {
   return {findings, examined, counts:{domains:domains.size, ips:ips.size, urls}, top};
 };
 
+/* NEW — TRACE original signatureless heuristics (NOT in MVT):
+   (a) daemon impostor / typosquatting via edit-distance to real daemons
+   (b) novelty outliers: unknown daemons with high-entropy names seen once */
+Engines.heuristics = (files) => {
+  const cand=new Map();
+  const add = n => { if(!n) return; n=n.trim().replace(/[()]/g,""); if(n.length<3||n.length>40) return; cand.set(n,(cand.get(n)||0)+1); };
+  for(const [name,text] of files){
+    if(/(^|\/)ps(_thread)?\.txt$/i.test(name))
+      for(const line of text.split("\n")){ const m=line.match(/(\/[^\s]+)\s*$/); if(m) add(m[1].split("/").pop()); }
+    for(const m of text.matchAll(/"(?:proc(?:ess)?_?name|name)"\s*:\s*"([^"]+)"/gi)) add(m[1]);
+    for(const m of text.matchAll(/Process:\s*([^\s\[]+)/gi)) add(m[1]);
+  }
+  const known=[...KNOWN_DAEMONS];
+  const findings=[]; const seen=new Set();
+  for(const [n,c] of cand){
+    const base=n.split(".").pop();
+    if(KNOWN_DAEMONS.has(n)||KNOWN_DAEMONS.has(base)) continue;
+    if(SEED_PROCESSES.includes(n)||SEED_PROCESSES.includes(base)) continue; // signatures already cover these
+    if(seen.has(base)) continue;
+    const looksDaemon=/^[a-z][a-z0-9]{2,}d$/.test(base);
+    if(!looksDaemon) continue;
+    let best=99, bestName="";
+    for(const k of known){ const d=editDistance(base,k,2); if(d<best){best=d;bestName=k;} if(best===1)break; }
+    const ent=entropyStr(base);
+    if(best>=1 && best<=2 && Math.abs(base.length-bestName.length)<=2){
+      seen.add(base);
+      findings.push({name:base,sev:"rev",meta:`názov sa líši len o ${best} znak(y) od systémového démona „${bestName}" — možný impostor (typosquatting)`});
+    } else if(ent>3.6 && c<=1){
+      seen.add(base);
+      findings.push({name:base,sev:"rev",meta:`neznámy démon, nezvyčajný názov (entropia ${ent.toFixed(2)} b/znak), výskyt ${c}× — odchýlka od Apple konvencií`});
+    }
+  }
+  return {findings, examined:cand.size};
+};
+
 Engines.timeline = (files) => {
   const events=[];
   for(const [name,text] of files){
@@ -661,7 +706,8 @@ async function run(files){
     {no:"05",key:"profiles",name:"Konfiguračné profily",sub:"MDM a profily tretích strán",fn:Engines.profiles},
     {no:"06",key:"jailbreak",name:"Jailbreak / inštrumentácia",sub:"Cydia, Frida, substrate, /var/jb…",fn:Engines.jailbreak},
     {no:"07",key:"artifacts",name:"Sieťové artefakty (harvest)",sub:"extrakcia domén/IP/URL z celého archívu",fn:Engines.artifacts},
-    {no:"08",key:"timeline",name:"Časová os udalostí",sub:"korelácia v čase",fn:Engines.timeline},
+    {no:"08",key:"heuristics",name:"Heuristika bez podpisov (TRACE)",sub:"impostor démonov + novelty outliers — vlastná metóda",fn:Engines.heuristics},
+    {no:"09",key:"timeline",name:"Časová os udalostí",sub:"korelácia v čase",fn:Engines.timeline},
   ];
 
   const results={};
@@ -717,7 +763,7 @@ function render(R, fileCount){
   </div>`;
 
   // why-so-fast transparency note
-  html+=`<div class="note"><b>Prečo to bolo rýchle?</b> TRACE neposiela nič na server — všetko beží lokálne. Práve preto je to rýchle: prehľadanie ${fmt(M.lines)} riadkov regulárnymi vzormi v prehliadači trvá sekundy. Hĺbka skenu nie je o čase, ale o pokrytí: prešlo sa <b>${fmt(M.files)}</b> súborov a indexovalo <b>${fmt(M.artifacts)}</b> sieťových artefaktov. To je rovnaký princíp aký používa MVT od Amnesty International.</div>`;
+  html+=`<div class="note"><b>Prečo to bolo rýchle?</b> TRACE neposiela nič na server — všetko beží lokálne. Práve preto je to rýchle: prehľadanie ${fmt(M.lines)} riadkov regulárnymi vzormi v prehliadači trvá sekundy. Hĺbka skenu nie je o čase, ale o pokrytí: prešlo sa <b>${fmt(M.files)}</b> súborov a indexovalo <b>${fmt(M.artifacts)}</b> sieťových artefaktov. A navyše — TRACE nehľadá len známe podpisy: vlastná heuristika (Exhibit 08) deteguje aj <b>impostor démonov</b> a odchýlky od Apple konvencií <b>bez akéhokoľvek zoznamu IOC</b>.</div>`;
 
   const meta={
     signatures:{no:"01",name:"Známe indikátory (IOC)",desc:"Prehľadáva všetky textové artefakty proti zoznamu známych procesov a domén spyware (Pegasus, Predator). Seed pochádza z výskumu Amnesty International a Citizen Lab."},
@@ -727,9 +773,10 @@ function render(R, fileCount){
     profiles:{no:"05",name:"Konfiguračné profily",desc:"MDM a profily tretích strán môžu monitorovať alebo riadiť zariadenie. Vypíše profily, ktoré nie sú od Apple."},
     jailbreak:{no:"06",name:"Jailbreak / inštrumentácia",desc:"Stopy po jailbreaku alebo nástrojoch na inštrumentáciu (Cydia, Sileo, Frida, substrate, /var/jb). Nie je to dôkaz spyware, ale mení to rizikový profil zariadenia."},
     artifacts:{no:"07",name:"Sieťové artefakty (harvest)",desc:"Vytiahne všetky domény, IP a URL z celého archívu, odfiltruje bežný Apple/CDN šum a označí auto-generované (vysoká entropia) alebo IOC adresy."},
-    timeline:{no:"08",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi pre koreláciu v čase."}
+    heuristics:{no:"08",name:"Heuristika bez podpisov (TRACE)",desc:"Vlastná metóda TRACE — nepotrebuje žiadny zoznam IOC. Hľadá procesy, ktoré sa názvom takmer zhodujú so systémovým démonom (typosquatting / impostor, cez edit-distance), a neznáme démony s nezvyčajným, vysoko-entropickým názvom. Cieľ: zachytiť aj hrozbu, ktorú ešte nikto nezdokumentoval."},
+    timeline:{no:"09",name:"Časová os udalostí",desc:"Skladá udalosti z logov (najmä pády) do jednej časovej osi pre koreláciu v čase."}
   };
-  const order=["signatures","shutdown","crashes","processes","profiles","jailbreak","artifacts","timeline"];
+  const order=["signatures","shutdown","crashes","processes","profiles","jailbreak","artifacts","heuristics","timeline"];
 
   html+=`<div class="sechead">Dôkazy · ${order.length} modulov</div>`;
   for(const key of order){
@@ -779,7 +826,7 @@ function render(R, fileCount){
   </div>`;
 
   html+=`<div class="disclaimer">
-    <b>Čo tento nástroj je a čo nie je.</b> TRACE kontroluje <b>verejne známe</b> spyware indikátory a podozrivé vzory v logoch — to isté čo robí MVT (Amnesty International). Vie zachytiť známe hrozby a anomálie, ale <b>nezaručuje</b> čistotu: cielený zero-day spyware, ktorý ešte nie je zdokumentovaný, nemusí zanechať známu stopu. Novší iOS navyše maže časť stôp (napr. shutdown.log). Čistý výsledok znamená „nič známe sa nenašlo", nie „100 % bez spyware".
+    <b>Čo tento nástroj je a čo nie je.</b> TRACE <b>nie je klon MVT</b> — kombinuje voliteľné verejne známe IOC s <b>vlastnými signatureless heuristikami</b> (impostor démonov cez edit-distance, novelty/entropia, harvest sieťových artefaktov), ktoré dokážu označiť aj nezdokumentovanú anomáliu. Vie zachytiť známe hrozby aj odchýlky, ale <b>nezaručuje</b> čistotu: cielený zero-day spyware, ktorý ešte nie je zdokumentovaný, nemusí zanechať známu stopu. Novší iOS navyše maže časť stôp (napr. shutdown.log). Čistý výsledok znamená „nič známe sa nenašlo", nie „100 % bez spyware".
     <br><br>Ak máš reálne podozrenie že si cieľom (novinár, aktivista, atď.), obráť sa na <a href="https://www.accessnow.org/help/" target="_blank" rel="noopener">Access Now Digital Security Helpline</a> (zdarma) alebo použi <a href="https://github.com/mvt-project/mvt" target="_blank" rel="noopener">MVT</a> s aktuálnymi indikátormi.
   </div>`;
 
