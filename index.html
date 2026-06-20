@@ -167,7 +167,7 @@
   <div class="head">
     <div class="brand">
       <span class="logo">TRA<b>CE</b></span>
-      <span class="ver">v0.4 · offline forensics</span>
+      <span class="ver">v0.5 · offline forensics</span>
     </div>
     <div class="tagline">Vygeneruj si na iPhone <b>sysdiagnose</b>, hoď ho sem. Hľadá verejne známe indikátory spyware (Pegasus, Predator a spol.) a podozrivé vzory v systémových logoch.</div>
     <span class="privacy"><span class="dot"></span> 100&nbsp;% beží v tvojom prehliadači — nič sa nikam nenahráva</span>
@@ -501,33 +501,61 @@ Engines.signatures = (files) => {
 
 // 03 — shutdown.log sticky-process analysis (Amnesty method)
 Engines.shutdown = (files) => {
-  const log=files.find(([n])=>/shutdown\.log$/i.test(n));
-  if(!log) return {nodata:true};
-  const text=log[1];
-  const paths={};
-  for(const line of text.split("\n")){
-    const m=line.match(/\/[^\s,;]+/g);
-    if(!m) continue;
-    for(let p of m){
-      if(p.length<6) continue;
-      paths[p]=(paths[p]||0)+1;
+  let log=files.find(([n])=>/shutdown\.log$/i.test(n));
+  // fallback 1: a file that looks like a shutdown log by its content
+  if(!log) log=files.find(([n,t])=>t && /remaining client pid|still requires \d+ client|SIGKILL/i.test(t) && /shutdown/i.test(t));
+  if(log){
+    const text=log[1];
+    const paths={};
+    for(const line of text.split("\n")){
+      const m=line.match(/\/[^\s,;]+/g);
+      if(!m) continue;
+      for(let p of m){
+        if(p.length<6) continue;
+        paths[p]=(paths[p]||0)+1;
+      }
+    }
+    const findings=[];
+    for(const [p,count] of Object.entries(paths)){
+      const standard=/^\/(System|usr|sbin|bin|Applications|Developer|cores|private\/var\/containers|private\/var\/installd|private\/preboot|Library)\b/.test(p)
+        || /\/Application\b/.test(p);
+      const suspPath=SUSPICIOUS_PATHS.some(s=>p.includes(s));
+      const knownIoc=SEED_PROCESSES.some(t=>p.toLowerCase().endsWith("/"+t.toLowerCase()));
+      if(knownIoc){
+        findings.push({name:p,sev:"hit",meta:`zhoduje sa so známym IOC procesom · ${count}× blokoval vypnutie`});
+      } else if(suspPath && count>=2){
+        findings.push({name:p,sev:"rev",meta:`podozrivá cesta · opakovane (${count}×) bránil vypnutiu`});
+      } else if(!standard && count>=3){
+        findings.push({name:p,sev:"rev",meta:`neštandardná cesta · ${count}× bránil vypnutiu — pozri či ho poznáš`});
+      }
+    }
+    return {findings, scanned:Object.keys(paths).length};
+  }
+  // fallback 2: no shutdown.log at all (common on new iOS) — derive shutdown/reboot
+  // events from any other logs so the module still works straight from mobile
+  const evts=[];
+  const reTs=/(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/;
+  for(const [name,text] of files){
+    if(!text||text.length>3000000) continue;
+    if(!/boot|shutdown|reboot|panic|reset|power/i.test(name) && text.indexOf("shutdown")<0 && text.indexOf("reboot")<0) continue;
+    for(const line of text.split("\n")){
+      if(line.length>400) continue;
+      let kind=null;
+      if(/\bpanic\b/i.test(line)) kind="pád systému / panika (telefón sa sám reštartoval)";
+      else if(/reset count|\breboot|\brestart/i.test(line)) kind="reštart zariadenia";
+      else if(/\bshutdown\b/i.test(line)) kind="vypnutie zariadenia";
+      else if(/\bboot(strap|ed|ing)?\b/i.test(line)) kind="štart (zapnutie) zariadenia";
+      if(!kind) continue;
+      const tm=line.match(reTs);
+      evts.push({t:tm?tm[1].replace("T"," "):"", d:kind});
+      if(evts.length>5000) break;
     }
   }
-  const findings=[];
-  for(const [p,count] of Object.entries(paths)){
-    const standard=/^\/(System|usr|sbin|bin|Applications|Developer|cores|private\/var\/containers|private\/var\/installd|private\/preboot|Library)\b/.test(p)
-      || /\/Application\b/.test(p);
-    const suspPath=SUSPICIOUS_PATHS.some(s=>p.includes(s));
-    const knownIoc=SEED_PROCESSES.some(t=>p.toLowerCase().endsWith("/"+t.toLowerCase()));
-    if(knownIoc){
-      findings.push({name:p,sev:"hit",meta:`zhoduje sa so známym IOC procesom · ${count}× blokoval vypnutie`});
-    } else if(suspPath && count>=2){
-      findings.push({name:p,sev:"rev",meta:`podozrivá cesta · opakovane (${count}×) bránil vypnutiu`});
-    } else if(!standard && count>=3){
-      findings.push({name:p,sev:"rev",meta:`neštandardná cesta · ${count}× bránil vypnutiu — pozri či ho poznáš`});
-    }
-  }
-  return {findings, scanned:Object.keys(paths).length};
+  const seen=new Set(), list=[];
+  for(const e of evts){ const k=e.t+"|"+e.d; if(!seen.has(k)){ seen.add(k); list.push(e); } }
+  list.sort((a,b)=>(a.t<b.t?-1:1));
+  if(!list.length) return {nodata:true};
+  return {findings:[], derived:true, reboots:list.slice(0,80)};
 };
 
 // 04 — crash & spin reports
@@ -800,7 +828,7 @@ ${digest}`;
 
   const PLAIN={
     signatures:"Po ľudsky: porovná názvy procesov a webových adries v tvojich logoch s verejným zoznamom známeho spyware. Zhoda = pozor, žiadna zhoda = nič známe sa nenašlo.",
-    shutdown:"Po ľudsky: spyware Pegasus sa pri vypínaní telefónu „drží” a bráni vypnutiu. Tento modul taký vzor hľadá. Novší iOS tento súbor často vôbec nerobí, takže „bez dát” je tu bežné.",
+    shutdown:"Po ľudsky: spyware Pegasus sa pri vypínaní telefónu „drží” a bráni vypnutiu. Tento modul taký vzor hľadá. Ak novší iOS súbor shutdown.log nevytvoril, modul si vypínania a reštarty poskladá z ostatných logov — funguje teda aj bez neho, priamo z mobilu.",
     crashes:"Po ľudsky: keď nejaký program opakovane „padá” (seká sa a vypne), môže (ale nemusí) to byť stopa po pokuse zneužiť chybu v systéme. Pár pádov je úplne normálnych.",
     processes:"Po ľudsky: kontroluje, či nejaký program nebeží zo skrytého alebo dočasného priečinka, kam bežné appky nepatria.",
     profiles:"Po ľudsky: „profil” je nastavenie, ktoré dokáže telefón sledovať alebo ovládať (napr. od firmy či školy). Vypíše tie, ktoré nie sú priamo od Apple.",
@@ -831,6 +859,7 @@ ${digest}`;
     if(res.nodata){stat="bez dát";statCls="s-none";}
     else if(hits){stat=`${hits} IOC`;statCls="s-hit";}
     else if(revs){stat=`${revs} kontrola`;statCls="s-rev";}
+    else if(res.derived){stat=`${res.reboots.length} udalostí`;statCls="s-ok";}
     else{stat="čisté";statCls="s-ok";}
 
     let body=`<p class="desc">${m.desc}</p>`;
@@ -851,6 +880,10 @@ ${digest}`;
         body+=`<div class="tl">`+res.list.map(s=>`<div class="t-row"><span class="t-desc">📶 ${escapeHtml(s)}</span></div>`).join("")+`</div>`;
         body+=gptBtn(`Toto sú názvy Wi-Fi sietí z môjho iPhonu: ${res.list.slice(0,40).join(", ")}. Som laik. Sú medzi nimi nejaké, ktoré vyzerajú podozrivo alebo ako odpočúvacie/falošné siete? Vysvetli po slovensky a jednoducho.`,"🤖 Spýtať sa ChatGPT na tieto siete");
       } else body+=`<div style="color:var(--faint);font-size:12px">Nenašli sa čitateľné názvy Wi-Fi sietí.</div>`;
+    } else if(key==="shutdown" && res.derived){
+      body+=`<div style="border:1px solid #34402a;background:#1e2016;border-radius:8px;padding:11px 14px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:10px"><b style="color:var(--signal)">shutdown.log v zázname nebol</b> (novší iOS ho často nevytvára). Aby modul aj tak fungoval, poskladal som vypínania a reštarty z ostatných logov. Veľa <b>neočakávaných reštartov či paník</b> môže (ale nemusí) súvisieť so spyware — porovnaj časy s tým, čo si reálne robil.</div>`;
+      body+=`<div class="tl">`+res.reboots.map(e=>`<div class="t-row"><span class="t-time">${escapeHtml(e.t||"—")}</span><span class="t-desc">${escapeHtml(e.d)}</span></div>`).join("")+`</div>`;
+      body+=gptBtn(`Kontrolujem si iPhone na spyware. shutdown.log nebol dostupný, tak nástroj poskladal tieto udalosti vypínania/reštartov/paník zo systémových logov: ${res.reboots.slice(0,50).map(e=>(e.t||"?")+" "+e.d).join("; ")}. Som laik. Je na tom niečo podozrivé (napr. priveľa neočakávaných reštartov/paník)? Vysvetli po slovensky a jednoducho a poraď čo s tým.`,"🤖 Spýtať sa ChatGPT na tieto reštarty");
     } else if(f.length){
       if(revs && !hits) body+=`<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6"><b style="color:var(--text)">„Na kontrolu" neznamená spyware.</b> Znamená to len, že niečo mierne vyčnieva oproti bežnému stavu (napr. <b>spindump</b> = momentka, čo robili procesy, keď sa niečo seklo). Skoro vždy je to neškodné. Ak nechápeš konkrétnu položku, ťukni pri nej <b>🤖 Spýtať sa ChatGPT</b> a vysvetlí ti ju.</div>`;
       body+=f.map(x=>`<div class="finding sev-${x.sev}">
@@ -918,7 +951,7 @@ ${digest}`;
   </div>`;
 
   $("#report").innerHTML=html;
-  window.__report={generated:new Date().toISOString(), version:"0.4", device:devInfo, ips:ips.map(r=>r[0]), fileCount, results:R};
+  window.__report={generated:new Date().toISOString(), version:"0.5", device:devInfo, ips:ips.map(r=>r[0]), fileCount, results:R};
   $("#report").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
 
