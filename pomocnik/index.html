@@ -363,6 +363,32 @@
         <button class="note-btn" onclick="sendToNotes('Losovanie: '+gv('randOut'))">📌 Do poznámok</button>
       </div>
 
+      <!-- ZNÁMKY -->
+      <div class="panel card" id="grades">
+        <label>Známky (1–5) oddelené čiarkou alebo medzerou</label>
+        <textarea id="gradesIn" placeholder="napr. 1, 2, 1, 3, 2" oninput="calcGrades()"></textarea>
+        <div class="grid2"><div><small>Priemer</small><b id="gradesAvg">—</b></div><div><small>Počet</small><b id="gradesN">0</b></div></div>
+        <div class="out" id="gradesMsg">—</div>
+        <button class="note-btn" onclick="sendToNotes('Priemer známok: '+gv('gradesAvg')+' ('+gv('gradesN')+' známok)')">📌 Do poznámok</button>
+      </div>
+
+      <!-- TEST → ZNÁMKA -->
+      <div class="panel card" id="testgrade">
+        <div class="row"><div><label>Získané body</label><input type="number" id="tgGot" value="18" oninput="calcTest()"></div><div><label>Max. body</label><input type="number" id="tgMax" value="20" oninput="calcTest()"></div></div>
+        <div class="grid2"><div><small>Úspešnosť</small><b id="tgPct">—</b></div><div><small>Známka</small><b id="tgGrade" style="font-size:1.8rem">—</b></div></div>
+        <div class="hintbox">Stupnica: 90–100 % = <b>1</b> · 75–89 % = <b>2</b> · 50–74 % = <b>3</b> · 30–49 % = <b>4</b> · pod 30 % = <b>5</b></div>
+        <button class="note-btn" onclick="sendToNotes('Test: '+gv('tgPct')+', známka '+gv('tgGrade'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- ŠTATISTIKA -->
+      <div class="panel card" id="stats">
+        <label>Čísla (oddelené čiarkou, medzerou alebo riadkom)</label>
+        <textarea id="statsIn" placeholder="napr. 12, 7, 9, 21, 4" oninput="calcStats()"></textarea>
+        <div class="grid2"><div><small>Súčet</small><b id="stSum">—</b></div><div><small>Priemer</small><b id="stAvg">—</b></div><div><small>Počet</small><b id="stN">0</b></div></div>
+        <div class="grid2"><div><small>Medián</small><b id="stMed">—</b></div><div><small>Min</small><b id="stMin">—</b></div><div><small>Max</small><b id="stMax">—</b></div></div>
+        <button class="note-btn" onclick="sendToNotes('Štatistika: súčet '+gv('stSum')+', priemer '+gv('stAvg')+', medián '+gv('stMed'))">📌 Do poznámok</button>
+      </div>
+
       <!-- PITNÝ REŽIM -->
       <div class="panel card" id="water">
         <label>Tvoja hmotnosť (kg)</label>
@@ -437,6 +463,9 @@ const apps=[
   {id:'loan',ico:'💰',nm:'Splátky',g:['#c79081','#dfa579']},
   {id:'color',ico:'🎨',nm:'Farby',g:['#667eea','#764ba2']},
   {id:'rand',ico:'🎲',nm:'Náhoda',g:['#ff0844','#ffb199']},
+  {id:'grades',ico:'🎓',nm:'Známky',g:['#f6d365','#fda085']},
+  {id:'testgrade',ico:'🎯',nm:'Test→známka',g:['#84fab0','#8fd3f4']},
+  {id:'stats',ico:'📊',nm:'Štatistika',g:['#a1c4fd','#c2e9fb']},
   {id:'water',ico:'💧',nm:'Pitný režim',g:['#43cea2','#185a9d']},
   {id:'quotes',ico:'💬',nm:'Citáty',g:['#ee9ca7','#f5576c']},
   {id:'roman',ico:'🏛️',nm:'Rímske č.',g:['#909aae','#2c3e50']},
@@ -619,6 +648,17 @@ function pickRandom(){const i=document.getElementById('randList').value.split('\
 function pickNumber(){let a=+document.getElementById('randMin').value,b=+document.getElementById('randMax').value;if(a>b)[a,b]=[b,a];document.getElementById('randOut').textContent=rnd(a,b);}
 function flipCoin(){document.getElementById('randOut').textContent=rnd(0,1)?'🪙 Hlava':'🪙 Znak';}
 function rollDice(){document.getElementById('randOut').textContent='🎲 '+rnd(1,6);}
+
+/* Známky */
+function calcGrades(){const raw=document.getElementById('gradesIn').value.match(/[1-5]([.,]\d+)?/g)||[];const nums=raw.map(x=>parseFloat(x.replace(',','.'))).filter(n=>n>=1&&n<=5);if(!nums.length){document.getElementById('gradesAvg').textContent='—';document.getElementById('gradesN').textContent='0';document.getElementById('gradesMsg').textContent='—';return;}const avg=nums.reduce((a,b)=>a+b,0)/nums.length;document.getElementById('gradesAvg').textContent=avg.toFixed(2).replace('.',',');document.getElementById('gradesN').textContent=nums.length;document.getElementById('gradesMsg').textContent='Zaokrúhlene: '+Math.round(avg);}
+
+/* Test → známka */
+function calcTest(){const g=+document.getElementById('tgGot').value,m=+document.getElementById('tgMax').value;if(!m||m<=0)return;const p=Math.max(0,g/m*100);document.getElementById('tgPct').textContent=p.toFixed(0)+' %';let gr;if(p>=90)gr=1;else if(p>=75)gr=2;else if(p>=50)gr=3;else if(p>=30)gr=4;else gr=5;document.getElementById('tgGrade').textContent=gr;}
+calcTest();
+
+/* Štatistika */
+function fmtNum(n){return (Math.round(n*1000)/1000).toString().replace('.',',');}
+function calcStats(){const nums=(document.getElementById('statsIn').value.match(/-?\d+([.,]\d+)?/g)||[]).map(x=>parseFloat(x.replace(',','.')));const ids=['stSum','stAvg','stN','stMed','stMin','stMax'];if(!nums.length){ids.forEach(id=>document.getElementById(id).textContent=id==='stN'?'0':'—');return;}const sum=nums.reduce((a,b)=>a+b,0);const sorted=[...nums].sort((a,b)=>a-b);const mid=Math.floor(sorted.length/2);const med=sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;document.getElementById('stSum').textContent=fmtNum(sum);document.getElementById('stAvg').textContent=fmtNum(sum/nums.length);document.getElementById('stN').textContent=nums.length;document.getElementById('stMed').textContent=fmtNum(med);document.getElementById('stMin').textContent=fmtNum(Math.min(...nums));document.getElementById('stMax').textContent=fmtNum(Math.max(...nums));}
 
 /* Pitný režim */
 function calcWater(){const w=+document.getElementById('waterW').value;if(!w)return;const l=w*0.033;document.getElementById('waterNeed').textContent=l.toFixed(2).replace('.',',')+' l';document.getElementById('waterGlasses').textContent=Math.ceil(l/0.25);}
