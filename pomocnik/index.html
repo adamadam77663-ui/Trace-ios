@@ -38,18 +38,23 @@
 
   /* ---------- HOME ---------- */
   #home{padding-top:calc(env(safe-area-inset-top) + 28px);}
-  .home-head{padding:0 26px 22px;}
+  .home-head{padding:0 26px 16px;}
   .home-head .hello{font-size:.95rem;color:var(--muted);font-weight:500;}
   .home-head h1{font-size:2.4rem;font-weight:800;letter-spacing:-.5px;margin-top:2px;}
   .home-head .date{color:var(--muted);font-size:.95rem;margin-top:2px;text-transform:capitalize;}
+  .search-wrap{padding:0 18px 8px;}
+  #search{width:100%;background:var(--surface);border:.5px solid var(--sep);color:var(--text);padding:12px 16px;border-radius:14px;font-size:1rem;outline:none;font-family:inherit;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
   .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px 6px;padding:8px 14px;}
   @media(min-width:480px){.grid{grid-template-columns:repeat(5,1fr);gap:24px 10px;}}
   .app{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;font-family:inherit;}
   .app .ico{
     width:60px;height:60px;border-radius:16px;display:flex;align-items:center;justify-content:center;
-    font-size:1.7rem;box-shadow:0 6px 16px rgba(0,0,0,.28);transition:transform .15s;
+    font-size:1.7rem;box-shadow:0 6px 16px rgba(0,0,0,.28);transition:transform .15s;position:relative;overflow:hidden;
+    animation:pop .45s cubic-bezier(.2,.8,.3,1.2) backwards;
   }
-  .app:active .ico{transform:scale(.88);}
+  .app .ico::after{content:'';position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.4),transparent 48%);pointer-events:none;}
+  @keyframes pop{from{opacity:0;transform:scale(.5);}to{opacity:1;transform:scale(1);}}
+  .app:active .ico{transform:scale(.86);}
   .app .nm{font-size:.72rem;color:var(--text);font-weight:500;max-width:72px;line-height:1.15;}
   .home-foot{text-align:center;color:var(--muted);font-size:.75rem;margin-top:24px;padding:0 30px;}
   .credits{margin:30px 20px 6px;text-align:center;padding:18px;border-radius:18px;background:var(--surface);border:.5px solid var(--sep);}
@@ -81,7 +86,8 @@
   .navbar .title{font-size:1.05rem;font-weight:600;}
   .tool-body{padding:18px 18px 40px;max-width:560px;margin:0 auto;}
   .tool-hero{display:flex;flex-direction:column;align-items:center;gap:10px;margin:6px 0 20px;}
-  .tool-hero .ico{width:66px;height:66px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.9rem;box-shadow:0 8px 20px rgba(0,0,0,.3);}
+  .tool-hero .ico{width:66px;height:66px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.9rem;box-shadow:0 8px 20px rgba(0,0,0,.3);position:relative;overflow:hidden;}
+  .tool-hero .ico::after{content:'';position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.4),transparent 48%);}
 
   /* ---------- iOS controls ---------- */
   .card{background:var(--surface);border:.5px solid var(--sep);border-radius:18px;padding:18px;margin-bottom:16px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
@@ -150,10 +156,11 @@
   <!-- ===== HOME ===== -->
   <div class="screen" id="home">
     <div class="home-head">
-      <div class="hello">Vitaj 👋</div>
+      <div class="hello" id="hello">Vitaj 👋</div>
       <h1>Pomocník</h1>
       <div class="date" id="homeDate"></div>
     </div>
+    <div class="search-wrap"><input type="text" id="search" placeholder="🔍 Hľadať nástroj…" oninput="filterApps()"></div>
     <div class="grid" id="appGrid"></div>
     <div class="credits">
       <span class="cr-label">Vytvorili</span>
@@ -389,6 +396,61 @@
         <button class="note-btn" onclick="sendToNotes('Štatistika: súčet '+gv('stSum')+', priemer '+gv('stAvg')+', medián '+gv('stMed'))">📌 Do poznámok</button>
       </div>
 
+      <!-- OHMOV ZÁKON -->
+      <div class="panel card" id="ohm">
+        <div class="row"><div><label>Napätie U (V)</label><input type="number" id="ohmU" oninput="ohmCalc()"></div><div><label>Prúd I (A)</label><input type="number" id="ohmI" oninput="ohmCalc()"></div></div>
+        <label>Odpor R (Ω)</label><input type="number" id="ohmR" oninput="ohmCalc()">
+        <div class="out big" id="ohmOut" style="font-size:1.5rem">Zadaj dve hodnoty</div>
+        <div class="hintbox">U = R · I &nbsp;•&nbsp; R = U / I &nbsp;•&nbsp; I = U / R</div>
+        <button class="note-btn" onclick="sendToNotes('Ohm: '+gv('ohmOut'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- EL. VÝKON -->
+      <div class="panel card" id="power">
+        <div class="row"><div><label>Napätie U (V)</label><input type="number" id="pU" value="230" oninput="powerCalc()"></div><div><label>Prúd I (A)</label><input type="number" id="pI" value="2" oninput="powerCalc()"></div></div>
+        <div class="out big" id="pOut" style="font-size:1.6rem">—</div>
+        <label>Spotreba — čas (h) a cena (€/kWh)</label>
+        <div class="row"><input type="number" id="pH" value="3" placeholder="hodiny" oninput="powerCalc()"><input type="number" id="pPrice" value="0.20" placeholder="€/kWh" oninput="powerCalc()"></div>
+        <div class="grid2"><div><small>Spotreba</small><b id="pKwh">—</b></div><div><small>Cena</small><b id="pCost">—</b></div></div>
+        <div class="hintbox">P = U · I &nbsp;•&nbsp; Energia = P · čas</div>
+        <button class="note-btn" onclick="sendToNotes('Výkon: '+gv('pOut')+', '+gv('pKwh')+', '+gv('pCost'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- FAREBNÝ KÓD ODPOROV -->
+      <div class="panel card" id="rescolor">
+        <div class="row"><div><label>1. pruh</label><select id="rc1" onchange="calcRC()"></select></div><div><label>2. pruh</label><select id="rc2" onchange="calcRC()"></select></div></div>
+        <div class="row"><div><label>Násobiteľ</label><select id="rc3" onchange="calcRC()"></select></div><div><label>Tolerancia</label><select id="rc4" onchange="calcRC()"></select></div></div>
+        <div class="out big" id="rcOut" style="font-size:1.6rem">—</div>
+        <div class="hintbox">4-pruhový odpor: 1. a 2. pruh = číslice, 3. = násobiteľ, 4. = tolerancia.</div>
+        <button class="note-btn" onclick="sendToNotes('Odpor (kód): '+gv('rcOut'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- ODPORY SÉRIA/PARALEL -->
+      <div class="panel card" id="resistors">
+        <label>Odpory (Ω) — každý na nový riadok alebo čiarka</label>
+        <textarea id="resIn" placeholder="napr. 100, 220, 330" oninput="calcResistors()"></textarea>
+        <div class="grid2"><div><small>Sériovo (súčet)</small><b id="resSer">—</b></div><div><small>Paralelne</small><b id="resPar">—</b></div></div>
+        <button class="note-btn" onclick="sendToNotes('Odpory: séria '+gv('resSer')+', paralel '+gv('resPar'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- DELIČ NAPÄTIA -->
+      <div class="panel card" id="divider">
+        <label>Vstupné napätie Vin (V)</label><input type="number" id="dvVin" value="12" oninput="calcDivider()">
+        <div class="row"><div><label>R1 (Ω)</label><input type="number" id="dvR1" value="1000" oninput="calcDivider()"></div><div><label>R2 (Ω)</label><input type="number" id="dvR2" value="2000" oninput="calcDivider()"></div></div>
+        <div class="out big" id="dvOut" style="font-size:1.6rem">—</div>
+        <div class="hintbox">Vout = Vin · R2 / (R1 + R2)</div>
+        <button class="note-btn" onclick="sendToNotes('Delič napätia: '+gv('dvOut'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- REAKTANCIA -->
+      <div class="panel card" id="react">
+        <label>Frekvencia f (Hz)</label><input type="number" id="rxF" value="50" oninput="calcReact()">
+        <div class="row"><div><label>Cievka L (mH)</label><input type="number" id="rxL" value="100" oninput="calcReact()"></div><div><label>Kondenzátor C (µF)</label><input type="number" id="rxC" value="10" oninput="calcReact()"></div></div>
+        <div class="grid2"><div><small>XL (cievka)</small><b id="rxXL">—</b></div><div><small>XC (kondenz.)</small><b id="rxXC">—</b></div></div>
+        <div class="hintbox">XL = 2πf · L &nbsp;•&nbsp; XC = 1 / (2πf · C)</div>
+        <button class="note-btn" onclick="sendToNotes('Reaktancia: XL '+gv('rxXL')+', XC '+gv('rxXC'))">📌 Do poznámok</button>
+      </div>
+
       <!-- PITNÝ REŽIM -->
       <div class="panel card" id="water">
         <label>Tvoja hmotnosť (kg)</label>
@@ -446,6 +508,9 @@
 <script>
 const gv=id=>document.getElementById(id).textContent;
 const eur=n=>(+n).toLocaleString('sk-SK',{style:'currency',currency:'EUR'});
+const pf=id=>parseFloat(document.getElementById(id).value);
+function fmt(n){if(!isFinite(n))return '∞';return (+n.toPrecision(6)).toLocaleString('sk-SK',{maximumFractionDigits:6});}
+function fmtR(v){if(!isFinite(v))return '∞';let u='Ω',x=v;if(Math.abs(v)>=1e6){x=v/1e6;u='MΩ';}else if(Math.abs(v)>=1e3){x=v/1e3;u='kΩ';}return fmt(x)+' '+u;}
 
 const apps=[
   {id:'pw',ico:'🔐',nm:'Heslá',g:['#ff5e62','#ff9966']},
@@ -466,6 +531,12 @@ const apps=[
   {id:'grades',ico:'🎓',nm:'Známky',g:['#f6d365','#fda085']},
   {id:'testgrade',ico:'🎯',nm:'Test→známka',g:['#84fab0','#8fd3f4']},
   {id:'stats',ico:'📊',nm:'Štatistika',g:['#a1c4fd','#c2e9fb']},
+  {id:'ohm',ico:'⚡',nm:'Ohmov zákon',g:['#f7b733','#fc4a1a']},
+  {id:'power',ico:'🔌',nm:'El. výkon',g:['#f54ea2','#ff7676']},
+  {id:'rescolor',ico:'🎚️',nm:'Odpor – farby',g:['#c94b4b','#4b134f']},
+  {id:'resistors',ico:'🧩',nm:'Odpory R',g:['#2193b0','#6dd5ed']},
+  {id:'divider',ico:'📉',nm:'Delič napätia',g:['#11998e','#38ef7d']},
+  {id:'react',ico:'〰️',nm:'Reaktancia',g:['#5f2c82','#49a09d']},
   {id:'water',ico:'💧',nm:'Pitný režim',g:['#43cea2','#185a9d']},
   {id:'quotes',ico:'💬',nm:'Citáty',g:['#ee9ca7','#f5576c']},
   {id:'roman',ico:'🏛️',nm:'Rímske č.',g:['#909aae','#2c3e50']},
@@ -475,11 +546,13 @@ const apps=[
 const appById=Object.fromEntries(apps.map(a=>[a.id,a]));
 
 const grid=document.getElementById('appGrid');
-apps.forEach(a=>{
-  const b=document.createElement('button');b.className='app';b.onclick=()=>openTool(a.id);
-  b.innerHTML=`<span class="ico" style="background:linear-gradient(145deg,${a.g[0]},${a.g[1]})">${a.ico}</span><span class="nm">${a.nm}</span>`;
+apps.forEach((a,idx)=>{
+  const b=document.createElement('button');b.className='app';b.onclick=()=>openTool(a.id);b.dataset.nm=a.nm.toLowerCase();
+  b.innerHTML=`<span class="ico" style="background:linear-gradient(145deg,${a.g[0]},${a.g[1]});animation-delay:${(idx*0.025).toFixed(2)}s">${a.ico}</span><span class="nm">${a.nm}</span>`;
   grid.appendChild(b);
 });
+function filterApps(){const q=document.getElementById('search').value.toLowerCase().trim();document.querySelectorAll('#appGrid .app').forEach(el=>{el.style.display=el.dataset.nm.includes(q)?'':'none';});}
+const gh=new Date().getHours();document.getElementById('hello').textContent=(gh<10?'Dobré ráno':gh<18?'Dobrý deň':'Dobrý večer')+' 👋';
 document.getElementById('homeDate').textContent=new Date().toLocaleDateString('sk-SK',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
 function openTool(id){
@@ -659,6 +732,36 @@ calcTest();
 /* Štatistika */
 function fmtNum(n){return (Math.round(n*1000)/1000).toString().replace('.',',');}
 function calcStats(){const nums=(document.getElementById('statsIn').value.match(/-?\d+([.,]\d+)?/g)||[]).map(x=>parseFloat(x.replace(',','.')));const ids=['stSum','stAvg','stN','stMed','stMin','stMax'];if(!nums.length){ids.forEach(id=>document.getElementById(id).textContent=id==='stN'?'0':'—');return;}const sum=nums.reduce((a,b)=>a+b,0);const sorted=[...nums].sort((a,b)=>a-b);const mid=Math.floor(sorted.length/2);const med=sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;document.getElementById('stSum').textContent=fmtNum(sum);document.getElementById('stAvg').textContent=fmtNum(sum/nums.length);document.getElementById('stN').textContent=nums.length;document.getElementById('stMed').textContent=fmtNum(med);document.getElementById('stMin').textContent=fmtNum(Math.min(...nums));document.getElementById('stMax').textContent=fmtNum(Math.max(...nums));}
+
+/* Ohmov zákon */
+function ohmCalc(){const U=pf('ohmU'),I=pf('ohmI'),R=pf('ohmR');const o=document.getElementById('ohmOut');let r;
+  if(!isNaN(U)&&!isNaN(I))r='R = '+fmtR(U/I);
+  else if(!isNaN(U)&&!isNaN(R))r='I = '+fmt(U/R)+' A';
+  else if(!isNaN(I)&&!isNaN(R))r='U = '+fmt(I*R)+' V';
+  else r='Zadaj dve hodnoty';
+  o.textContent=r;}
+
+/* El. výkon */
+function powerCalc(){const U=pf('pU'),I=pf('pI');if(isNaN(U)||isNaN(I))return;const P=U*I;document.getElementById('pOut').textContent='P = '+fmt(P)+' W';const h=pf('pH'),pr=pf('pPrice');if(!isNaN(h)){const kwh=P/1000*h;document.getElementById('pKwh').textContent=fmt(kwh)+' kWh';document.getElementById('pCost').textContent=isNaN(pr)?'—':eur(kwh*pr);}}
+powerCalc();
+
+/* Farebný kód odporov */
+const rcDigits=[['čierna',0],['hnedá',1],['červená',2],['oranžová',3],['žltá',4],['zelená',5],['modrá',6],['fialová',7],['sivá',8],['biela',9]];
+const rcMult=[['čierna ×1',1],['hnedá ×10',10],['červená ×100',100],['oranžová ×1k',1e3],['žltá ×10k',1e4],['zelená ×100k',1e5],['modrá ×1M',1e6],['zlatá ×0,1',0.1],['strieborná ×0,01',0.01]];
+const rcTol=[['hnedá ±1%',1],['červená ±2%',2],['zelená ±0,5%',0.5],['zlatá ±5%',5],['strieborná ±10%',10]];
+(function initRC(){const s1=document.getElementById('rc1'),s2=document.getElementById('rc2'),s3=document.getElementById('rc3'),s4=document.getElementById('rc4');rcDigits.forEach((c,i)=>{s1.add(new Option(c[0],i));s2.add(new Option(c[0],i));});rcMult.forEach((c,i)=>s3.add(new Option(c[0],i)));rcTol.forEach((c,i)=>s4.add(new Option(c[0],i)));s1.value=1;s2.value=0;s3.value=2;s4.value=3;calcRC();})();
+function calcRC(){const d1=rcDigits[+document.getElementById('rc1').value][1],d2=rcDigits[+document.getElementById('rc2').value][1],mult=rcMult[+document.getElementById('rc3').value][1],tol=rcTol[+document.getElementById('rc4').value][1];const val=(d1*10+d2)*mult;document.getElementById('rcOut').textContent=fmtR(val)+'  ±'+String(tol).replace('.',',')+'%';}
+
+/* Odpory séria/paralel */
+function calcResistors(){const nums=(document.getElementById('resIn').value.match(/\d+([.,]\d+)?/g)||[]).map(x=>parseFloat(x.replace(',','.'))).filter(n=>n>0);if(!nums.length){document.getElementById('resSer').textContent='—';document.getElementById('resPar').textContent='—';return;}const ser=nums.reduce((a,b)=>a+b,0);const par=1/nums.reduce((a,b)=>a+1/b,0);document.getElementById('resSer').textContent=fmtR(ser);document.getElementById('resPar').textContent=fmtR(par);}
+
+/* Delič napätia */
+function calcDivider(){const v=pf('dvVin'),r1=pf('dvR1'),r2=pf('dvR2');if(isNaN(v)||isNaN(r1)||isNaN(r2)||(r1+r2)===0)return;document.getElementById('dvOut').textContent='Vout = '+fmt(v*r2/(r1+r2))+' V';}
+calcDivider();
+
+/* Reaktancia */
+function calcReact(){const f=pf('rxF'),L=pf('rxL')/1000,C=pf('rxC')/1e6;const xl=document.getElementById('rxXL'),xc=document.getElementById('rxXC');if(!isNaN(f)&&!isNaN(L)&&f>0)xl.textContent=fmtR(2*Math.PI*f*L);else xl.textContent='—';if(!isNaN(f)&&!isNaN(C)&&f>0&&C>0)xc.textContent=fmtR(1/(2*Math.PI*f*C));else xc.textContent='—';}
+calcReact();
 
 /* Pitný režim */
 function calcWater(){const w=+document.getElementById('waterW').value;if(!w)return;const l=w*0.033;document.getElementById('waterNeed').textContent=l.toFixed(2).replace('.',',')+' l';document.getElementById('waterGlasses').textContent=Math.ceil(l/0.25);}
