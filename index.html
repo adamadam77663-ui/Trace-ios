@@ -9,14 +9,14 @@
 <title>TRACE · iOS Forensic Workstation</title>
 <style>
   :root{
-    --bg:#080d11; --bg2:#0b1318; --panel:#0f1a21; --panel2:#0c151b; --raised:#13212a;
-    --line:#1d2e39; --line2:#26404e;
-    --text:#e6eef1; --muted:#7e97a1; --faint:#46606b;
-    --signal:#f0b429;   /* review / primary accent */
-    --alert:#ff5d52;    /* high severity */
-    --ok:#3fd0a3;       /* clear */
-    --info:#4ea8e6;     /* data */
-    --violet:#9d8df1;   /* artifacts */
+    --bg:#080611; --bg2:#0c0a1a; --panel:#120f24; --panel2:#0e0b1c; --raised:#1a1533;
+    --line:#241d3d; --line2:#352a55;
+    --text:#e9e7f5; --muted:#9088b5; --faint:#5a5180;
+    --signal:#4dffa6;   /* review / primary accent — aurora green */
+    --alert:#ff6b8a;    /* high severity — galaxy pink */
+    --ok:#4dd6c4;       /* clear — teal */
+    --info:#6aa8ff;     /* data — starlight blue */
+    --violet:#b18bff;   /* artifacts — nebula violet */
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   }
@@ -24,9 +24,16 @@
   html,body{margin:0;padding:0}
   body{
     background:
-      radial-gradient(900px 500px at 80% -8%, #102733 0%, transparent 60%),
-      radial-gradient(700px 500px at -10% 0%, #14202b 0%, transparent 55%),
+      radial-gradient(1000px 600px at 82% -10%, #3a1d6e 0%, transparent 55%),
+      radial-gradient(800px 600px at -12% 5%, #15324f 0%, transparent 55%),
+      radial-gradient(600px 500px at 50% 110%, #1f2d5e 0%, transparent 60%),
+      radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.5), transparent),
+      radial-gradient(2px 2px at 70% 20%, rgba(255,255,255,.35), transparent),
+      radial-gradient(1.5px 1.5px at 40% 60%, rgba(255,255,255,.3), transparent),
+      radial-gradient(1.5px 1.5px at 85% 50%, rgba(255,255,255,.3), transparent),
+      radial-gradient(2px 2px at 30% 80%, rgba(255,255,255,.3), transparent),
       var(--bg);
+    background-attachment:fixed;
     color:var(--text);font-family:var(--sans);
     -webkit-font-smoothing:antialiased;line-height:1.5;
     padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
@@ -35,7 +42,7 @@
 
   /* ───────── case bar ───────── */
   .casebar{position:sticky;top:0;z-index:30;
-    background:linear-gradient(180deg,rgba(8,13,17,.96),rgba(8,13,17,.82));
+    background:linear-gradient(180deg,rgba(8,6,17,.96),rgba(8,6,17,.78));
     backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
     margin:0 -16px 0;padding:12px 16px}
   .casebar .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -48,6 +55,8 @@
   @keyframes pulse{50%{opacity:.35}}
   .casemeta{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:right;line-height:1.7}
   .casemeta b{color:var(--muted)}
+  .madeby{margin-top:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.4px;color:var(--muted)}
+  .madeby b{color:var(--signal)}
 
   /* ───────── tabs ───────── */
   .tabs{display:flex;gap:6px;margin:16px 0 18px;flex-wrap:wrap}
@@ -57,7 +66,7 @@
   .tab .ti{font-size:17px}
   .tab small{display:block;color:var(--faint);font-size:10px;font-family:var(--sans);margin-top:2px}
   .tab:hover{border-color:var(--line2)}
-  .tab.active{border-color:var(--signal);background:#14140a;color:var(--text);box-shadow:0 0 0 1px var(--signal) inset}
+  .tab.active{border-color:var(--signal);background:#0c2019;color:var(--text);box-shadow:0 0 0 1px var(--signal) inset}
   .tab.active .ti{filter:drop-shadow(0 0 6px var(--signal))}
 
   .tagline{color:var(--muted);font-size:13.5px;margin:2px 0 16px;max-width:640px}
@@ -69,9 +78,9 @@
     background:linear-gradient(180deg,var(--panel),var(--panel2));
     padding:34px 20px;text-align:center;cursor:pointer;transition:.15s;margin-bottom:14px;position:relative;overflow:hidden
   }
-  .drop::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(240,180,41,.04) 50%,transparent 70%);transform:translateX(-100%);transition:.4s}
+  .drop::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(77,255,166,.06) 50%,transparent 70%);transform:translateX(-100%);transition:.4s}
   .drop:hover{border-color:var(--signal)} .drop:hover::after{transform:translateX(100%)}
-  .drop.over{border-color:var(--signal);background:#1a1408}
+  .drop.over{border-color:var(--signal);background:#0e2018}
   .drop .ico{font-size:38px}
   .drop .big{font-family:var(--mono);font-size:15px;margin-top:10px;color:var(--text);letter-spacing:.5px}
   .drop .sub{font-size:12.5px;color:var(--muted);margin-top:7px}
@@ -86,7 +95,7 @@
   .btn{font-family:var(--mono);font-size:13px;font-weight:600;border:none;border-radius:10px;
     padding:12px 20px;cursor:pointer;transition:transform .1s,filter .15s;letter-spacing:.5px}
   .btn:active{transform:translateY(1px)} .btn:hover{filter:brightness(1.08)}
-  .btn-go{background:linear-gradient(180deg,#f7c33d,#e0a019);color:#1a1206;width:100%;margin-top:10px}
+  .btn-go{background:linear-gradient(180deg,#5effb0,#22c98c);color:#05231a;width:100%;margin-top:10px;font-weight:700}
   .btn-go:disabled{background:#1d2b34;color:var(--faint);cursor:not-allowed;filter:none}
   .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line2)}
 
@@ -134,7 +143,7 @@
   .verdict::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
   .verdict.clear{background:linear-gradient(180deg,#0d1d18,#0c151b);border-color:#194036}
   .verdict.clear::before{background:var(--ok)}
-  .verdict.review{background:linear-gradient(180deg,#1c1607,#0c151b);border-color:#403211}
+  .verdict.review{background:linear-gradient(180deg,#0e2018,#0e0b1c);border-color:#1d5c3f}
   .verdict.review::before{background:var(--signal)}
   .verdict.hit{background:linear-gradient(180deg,#210f0d,#0c151b);border-color:#4d201c}
   .verdict.hit::before{background:var(--alert)}
@@ -162,13 +171,13 @@
   .ex-name{font-family:var(--mono);font-size:13.5px;color:var(--text);flex:1}
   .ex-sub{font-family:var(--mono);font-size:10px;color:var(--faint);display:block;margin-top:2px}
   .ex-stat{font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:6px;flex-shrink:0}
-  .ex-stat.s-ok{color:var(--ok);background:#0d1d18} .ex-stat.s-rev{color:var(--signal);background:#1c1607}
+  .ex-stat.s-ok{color:var(--ok);background:#0d1d1c} .ex-stat.s-rev{color:var(--signal);background:#0e2018}
   .ex-stat.s-hit{color:var(--alert);background:#210f0d} .ex-stat.s-none{color:var(--faint);background:#0c151b}
   .ex-body{padding:0 16px 16px;font-size:13px;color:var(--muted);display:none}
   .ex-body.open{display:block}
   .desc{color:var(--faint);font-size:12px;margin:0 0 12px;border-left:2px solid var(--line2);padding-left:10px;line-height:1.6}
   .finding{border:1px solid var(--line);border-radius:9px;padding:11px 12px;margin:8px 0;background:var(--panel2)}
-  .finding.sev-hit{border-color:#4d201c;background:#170c0b} .finding.sev-rev{border-color:#403211;background:#15110a}
+  .finding.sev-hit{border-color:#5c2238;background:#1c0e16} .finding.sev-rev{border-color:#1d5c3f;background:#0c1c14}
   .ftop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
   .fname{font-family:var(--mono);font-size:13px;color:var(--text);word-break:break-all}
   .fsev{font-family:var(--mono);font-size:10px;flex-shrink:0;letter-spacing:.5px}
@@ -211,9 +220,9 @@
   .guide{border:1px solid var(--line2);border-radius:12px;background:#0c1722;padding:14px 16px;margin-bottom:16px}
   .guide h4{margin:0 0 8px;font-family:var(--mono);font-size:12px;color:var(--info);letter-spacing:.5px}
   .guide ol{margin:0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7}
-  .demobar{border:1px solid #3d3210;background:#1c1606;border-radius:11px;padding:12px 15px;
+  .demobar{border:1px solid #1d5c3f;background:#0e2018;border-radius:11px;padding:12px 15px;
     margin-bottom:14px;font-size:12.5px;color:var(--signal);line-height:1.55}
-  .demobar b{color:#ffd97a}
+  .demobar b{color:#9bffce}
   .legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;font-size:11.5px;color:var(--muted)}
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
@@ -231,10 +240,11 @@
   <div class="casebar">
     <div class="row">
       <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
-      <span class="pill">v0.8.1 · workstation</span>
+      <span class="pill">v0.9 · workstation</span>
       <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
       <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
+    <div class="madeby">✦ vytvoril <b>Wayra_</b> · <b>YTmedellyn</b> · <b>ZozoZozo</b></div>
   </div>
 
   <!-- TABS -->
