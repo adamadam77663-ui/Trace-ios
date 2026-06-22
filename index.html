@@ -193,6 +193,11 @@
   .disclaimer{margin-top:18px;border:1px solid var(--line);border-radius:11px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.6;background:var(--panel2)}
   .disclaimer b{color:var(--signal)}
   a{color:var(--info)}
+  .credit{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);text-align:center;
+    font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.5px;line-height:2}
+  .credit .glyph{color:var(--signal)}
+  .credit .by{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+  .credit .by b{color:var(--signal)}
   /* guided behaviour form */
   .field{margin-top:18px}
   .flabel{font-family:var(--sans);font-size:13.5px;color:var(--text);margin-bottom:4px;font-weight:600}
@@ -226,7 +231,7 @@
   <div class="casebar">
     <div class="row">
       <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
-      <span class="pill">v0.8 · workstation</span>
+      <span class="pill">v0.8.1 · workstation</span>
       <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
       <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
@@ -377,6 +382,11 @@
 
   <!-- REPORT -->
   <div id="report"></div>
+
+  <div class="credit">
+    <span class="glyph">⬡</span> TRACE · iOS Forensic Workstation
+    <span class="by">vytvoril <b>Wayra_</b> · <b>YTmedellyn</b> · <b>ZozoZozo</b></span>
+  </div>
 
 </div>
 
@@ -921,11 +931,12 @@ function render(R, fileCount){
   html+=`<div class="disclaimer">
     <b>Čo tento nástroj je a čo nie je.</b> TRACE <b>nie je klon MVT</b> — kombinuje voliteľné verejne známe IOC s <b>vlastnými signatureless heuristikami</b> (impostor démonov cez edit-distance, novelty/entropia, harvest sieťových artefaktov), ktoré dokážu označiť aj nezdokumentovanú anomáliu. Vie zachytiť známe hrozby aj odchýlky, ale <b>nezaručuje</b> čistotu: cielený zero-day spyware, ktorý ešte nie je zdokumentovaný, nemusí zanechať známu stopu. Novší iOS navyše maže časť stôp (napr. shutdown.log). Čistý výsledok znamená „nič známe sa nenašlo", nie „100 % bez spyware".
     <br><br>Ak máš reálne podozrenie že si cieľom (novinár, aktivista, atď.), obráť sa na <a href="https://www.accessnow.org/help/" target="_blank" rel="noopener">Access Now Digital Security Helpline</a> (zdarma) alebo použi <a href="https://github.com/mvt-project/mvt" target="_blank" rel="noopener">MVT</a> s aktuálnymi indikátormi.
+    <br><br><span style="color:var(--faint)">TRACE · vytvoril <b style="color:var(--signal)">Wayra_</b> · <b style="color:var(--signal)">YTmedellyn</b> · <b style="color:var(--signal)">ZozoZozo</b></span>
   </div>`;
 
   $("#report").innerHTML=html;
   const sb=$("#scanBox"); if(sb){ sb.querySelector(".scan-head").style.borderBottomColor="var(--line)"; }
-  window.__report={case:CASE_ID, generated:new Date().toISOString(), metrics:M, fileCount, results:R};
+  window.__report={tool:"TRACE", authors:["Wayra_","YTmedellyn","ZozoZozo"], case:CASE_ID, generated:new Date().toISOString(), metrics:M, fileCount, results:R};
   $("#report").scrollIntoView({behavior:reduceMotion?"auto":"smooth"});
 }
 
