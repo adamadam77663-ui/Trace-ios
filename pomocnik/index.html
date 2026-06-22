@@ -144,6 +144,12 @@
   .calc-grid .fn{background:var(--surface2);color:var(--blue);}
   .calc-grid .eq{background:var(--green);color:#fff;}
   .calc-grid .wide{grid-column:span 2;aspect-ratio:auto;border-radius:32px;}
+  .sci-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+  .sci-grid button{aspect-ratio:1;border:none;border-radius:50%;font-size:1.15rem;cursor:pointer;background:var(--field);color:var(--text);font-family:inherit;transition:.1s;}
+  .sci-grid button:active{filter:brightness(1.45);}
+  .sci-grid .op{background:var(--blue);color:#fff;}
+  .sci-grid .fn{background:var(--surface2);color:var(--blue);font-size:.92rem;}
+  .sci-grid .eq{background:var(--green);color:#fff;}
   .toast{position:fixed;bottom:34px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--green);color:#062012;padding:13px 22px;border-radius:999px;font-weight:600;transition:.3s;opacity:0;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.3);}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
   .swatch{width:100%;height:90px;border-radius:14px;margin-top:8px;border:.5px solid var(--sep);}
@@ -252,6 +258,38 @@
           <button class="wide" onclick="calcNum('0')">0</button><button onclick="calcDot()">,</button><button class="eq" onclick="calcEq()">=</button>
         </div>
         <button class="note-btn" onclick="sendToNotes('Výpočet: '+gv('calcDisp'))">📌 Do poznámok</button>
+      </div>
+
+      <!-- VEDECKÁ KALKULAČKA -->
+      <div class="panel card" id="scicalc">
+        <div class="calc-disp" id="scDisp" style="font-size:1.8rem">0</div>
+        <div class="sci-grid">
+          <button class="fn" onclick="scC()">C</button>
+          <button class="fn" onclick="scDel()">⌫</button>
+          <button class="fn" onclick="scA('(')">(</button>
+          <button class="fn" onclick="scA(')')">)</button>
+          <button class="op" onclick="scA('÷')">÷</button>
+          <button class="fn" onclick="scA('sin(')">sin</button>
+          <button class="fn" onclick="scA('cos(')">cos</button>
+          <button class="fn" onclick="scA('tan(')">tan</button>
+          <button class="fn" onclick="scA('√(')">√</button>
+          <button class="op" onclick="scA('×')">×</button>
+          <button onclick="scA('7')">7</button><button onclick="scA('8')">8</button><button onclick="scA('9')">9</button>
+          <button class="fn" onclick="scA('^')">^</button>
+          <button class="op" onclick="scA('−')">−</button>
+          <button onclick="scA('4')">4</button><button onclick="scA('5')">5</button><button onclick="scA('6')">6</button>
+          <button class="fn" onclick="scA('π')">π</button>
+          <button class="op" onclick="scA('+')">+</button>
+          <button onclick="scA('1')">1</button><button onclick="scA('2')">2</button><button onclick="scA('3')">3</button>
+          <button class="fn" onclick="scA('e')">e</button>
+          <button class="fn" onclick="scA('ln(')">ln</button>
+          <button onclick="scA('0')">0</button><button onclick="scA('.')">.</button>
+          <button class="fn" onclick="scA('^2')">x²</button>
+          <button class="fn" onclick="scA('log(')">log</button>
+          <button class="eq" onclick="scEq()">=</button>
+        </div>
+        <div class="hintbox">Trigonometria počíta v stupňoch (°). ln = prirodzený logaritmus, log = dekadický.</div>
+        <button class="note-btn" onclick="sendToNotes('Výpočet: '+gv('scDisp'))">📌 Do poznámok</button>
       </div>
 
       <!-- SLOVÁ -->
@@ -515,6 +553,7 @@ function fmtR(v){if(!isFinite(v))return '∞';let u='Ω',x=v;if(Math.abs(v)>=1e6
 const apps=[
   {id:'pw',ico:'🔐',nm:'Heslá',g:['#ff5e62','#ff9966']},
   {id:'calc',ico:'🧮',nm:'Kalkulačka',g:['#3a3a44','#1a1a22']},
+  {id:'scicalc',ico:'π',nm:'Vedecká kalk.',g:['#654ea3','#eaafc8']},
   {id:'conv',ico:'🔢',nm:'Prevody',g:['#00c6fb','#005bea']},
   {id:'qr',ico:'📱',nm:'QR kód',g:['#43e97b','#38f9d7']},
   {id:'timer',ico:'⏱️',nm:'Stopky',g:['#fa709a','#fee140']},
@@ -650,6 +689,32 @@ function calcSign(){cVal=(parseFloat(cVal)*-1).toString();cUpd();}
 function calcPercent(){cVal=(parseFloat(cVal)/100).toString();cUpd();}
 function calcOp(op){if(cOp&&!cFresh)calcEq();cPrev=parseFloat(cVal);cOp=op;cFresh=true;}
 function calcEq(){if(cOp===null||cPrev===null)return;const b=parseFloat(cVal);let r;switch(cOp){case'+':r=cPrev+b;break;case'-':r=cPrev-b;break;case'*':r=cPrev*b;break;case'/':r=b===0?'∞':cPrev/b;break;}cVal=(typeof r==='number'?+r.toFixed(8):r).toString();cOp=null;cPrev=null;cFresh=true;cUpd();}
+
+/* Vedecká kalkulačka */
+let scExpr='';
+function scShow(){document.getElementById('scDisp').textContent=scExpr||'0';}
+function scA(t){if(scExpr==='0')scExpr='';scExpr+=t;scShow();}
+function scC(){scExpr='';scShow();}
+function scDel(){scExpr=scExpr.slice(0,-1);scShow();}
+function scEq(){
+  if(!scExpr)return;
+  let e=scExpr
+    .replace(/sin\(/g,'SIN(').replace(/cos\(/g,'COS(').replace(/tan\(/g,'TAN(')
+    .replace(/ln\(/g,'Math.log(').replace(/log\(/g,'Math.log10(')
+    .replace(/√/g,'Math.sqrt')
+    .replace(/π/g,'(Math.PI)')
+    .replace(/e/g,'(Math.E)')
+    .replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/\^/g,'**');
+  let chk=e.replace(/Math\.(PI|E|sqrt|log10|log)/g,'#').replace(/SIN|COS|TAN/g,'#');
+  if(/[^0-9+\-*/().#\s]/.test(chk)){toast('Chyba vo výraze');return;}
+  try{
+    const SIN=x=>Math.sin(x*Math.PI/180),COS=x=>Math.cos(x*Math.PI/180),TAN=x=>Math.tan(x*Math.PI/180);
+    const r=Function('SIN','COS','TAN','"use strict";return('+e+')')(SIN,COS,TAN);
+    if(typeof r!=='number'||!isFinite(r)){toast('Nedá sa vypočítať');return;}
+    scExpr=String(+r.toPrecision(12));scShow();
+  }catch(err){toast('Chyba vo výraze');}
+}
+scShow();
 
 /* Slová */
 function countWords(){const t=document.getElementById('wordText').value,w=t.trim()?t.trim().split(/\s+/).length:0;document.getElementById('wWords').textContent=w;document.getElementById('wChars').textContent=t.length;document.getElementById('wSent').textContent=(t.match(/[.!?]+/g)||[]).length;const s=Math.ceil(w/(200/60));document.getElementById('wRead').textContent=s<60?s+'s':Math.floor(s/60)+'m';}
