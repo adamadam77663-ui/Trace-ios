@@ -206,6 +206,16 @@
   .guide{border:1px solid var(--line2);border-radius:12px;background:#0c1722;padding:14px 16px;margin-bottom:16px}
   .guide h4{margin:0 0 8px;font-family:var(--mono);font-size:12px;color:var(--info);letter-spacing:.5px}
   .guide ol{margin:0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7}
+  .demobar{border:1px solid #3d3210;background:#1c1606;border-radius:11px;padding:12px 15px;
+    margin-bottom:14px;font-size:12.5px;color:var(--signal);line-height:1.55}
+  .demobar b{color:#ffd97a}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:16px;font-size:11.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .legend .d-hit{background:var(--alert)} .legend .d-rev{background:var(--signal)} .legend .d-ok{background:var(--ok)}
+  .human{border-left:2px solid var(--info);background:#0c1722;border-radius:0 8px 8px 0;
+    padding:9px 12px;margin:0 0 12px;font-size:12.5px;color:var(--text);line-height:1.55}
+  .human b{color:var(--info)}
   @media print{ body{background:#fff} .casebar,.tabs,.drop,.btn,.howto,.actions,.scan,.or,#intakeExtra{display:none!important} .exhibit,.finding,.verdict{break-inside:avoid} }
 </style>
 </head>
@@ -216,7 +226,7 @@
   <div class="casebar">
     <div class="row">
       <span class="logo"><span class="glyph">⬡</span>TRA<b>CE</b></span>
-      <span class="pill">v0.7.2 · workstation</span>
+      <span class="pill">v0.8 · workstation</span>
       <span class="pill live"><span class="dot"></span>OFFLINE · v prehliadači</span>
       <span class="casemeta">CASE <b id="caseId">—</b><br><span id="caseTime">—</span></span>
     </div>
@@ -239,6 +249,8 @@
       <div class="sub">.tar.gz — alebo jednotlivé súbory (shutdown.log, .ips crash logy)</div>
     </div>
     <input type="file" id="file" hidden multiple>
+
+    <button class="btn btn-ghost" id="demoBtn" style="width:100%;margin-top:4px">▶ Nemáš sysdiagnose? Vyskúšaj ukážku</button>
 
     <div id="intakeExtra">
       <div class="or">alebo vlož text ručne</div>
@@ -528,6 +540,7 @@ function sld(h){ const p=h.split("."); return p.length>=2?p[p.length-2]:h; }
 
 /* global scan metrics (real counts) */
 const M = {files:0, lines:0, bytes:0, tokens:0, artifacts:0};
+let isDemoRun=false;
 
 /* ════════════════ engines ════════════════ */
 const Engines = {};
@@ -743,6 +756,7 @@ function line(cls, tag, msg){
 
 /* ════════════════ orchestrator ════════════════ */
 async function run(files){
+  isDemoRun=!!window.__demo; window.__demo=false;
   buildDashboard();
 
   // real metrics upfront
@@ -809,7 +823,16 @@ function render(R, fileCount){
     vSub="V tomto zázname sa nenašli žiadne známe spyware indikátory ani podozrivé sticky-procesy. Pre drvivú väčšinu ľudí je to očakávaný a normálny výsledok.";
   }
 
-  let html=`<div class="verdict ${vClass}"><div class="vrow"><div class="vmark">${vMark}</div><div class="vtitle">${vTitle}</div></div><div class="vsub">${vSub}</div></div>`;
+  let html="";
+  if(isDemoRun) html+=`<div class="demobar">▶ UKÁŽKA · toto sú <b>vymyslené dáta</b> nato, aby si videl ako vyzerá výsledok. Nič z toho sa netýka tvojho telefónu. Pre reálny sken nahraj svoj sysdiagnose.</div>`;
+
+  html+=`<div class="verdict ${vClass}"><div class="vrow"><div class="vmark">${vMark}</div><div class="vtitle">${vTitle}</div></div><div class="vsub">${vSub}</div></div>`;
+
+  html+=`<div class="legend">
+    <span><i class="d-hit"></i> IOC zhoda — našlo sa niečo známe zlé</span>
+    <span><i class="d-rev"></i> na kontrolu — netypické, väčšinou neškodné</span>
+    <span><i class="d-ok"></i> čisté — nič podozrivé</span>
+  </div>`;
 
   html+=`<div class="strip">
     <div class="stat"><div class="v">${fmt(M.files)}</div><div class="k">súborov</div></div>
@@ -834,6 +857,18 @@ function render(R, fileCount){
   };
   const order=["signatures","shutdown","crashes","processes","profiles","jailbreak","artifacts","heuristics","timeline"];
 
+  // plain-language line shown ONLY when this module found something
+  const human={
+    signatures:"Niektorý názov procesu alebo doména sa zhoduje so známym spyware. Nie je to istý dôkaz — môže ísť o náhodu — ale toto si nech preverí odborník.",
+    shutdown:"Pri vypínaní telefónu sa stále dokola objavoval ten istý proces z nezvyčajného miesta. Presne takto sa správa Pegasus. Skontroluj o aký proces ide.",
+    crashes:"Nejaký neznámy proces opakovane padal. Časté pády neznámeho procesu môžu byť stopa po pokuse o zneužitie.",
+    processes:"Beží proces z miesta, kde bežné appky nebývajú (napr. dočasný priečinok). Pozri si o čo ide.",
+    profiles:"V telefóne je profil na vzdialenú správu (MDM) alebo od niekoho iného než Apple. Ak si ho nepridal ty (práca/škola), zváž jeho odstránenie.",
+    jailbreak:"Našli sa stopy po jailbreaku alebo nástroji na úpravu systému. Ak si telefón sám neupravoval, je to dôvod na pozornosť.",
+    artifacts:"Medzi adresami, na ktoré sa telefón pripájal, je niektorá náhodne vyzerajúca alebo známa zlá. Pozri zoznam nižšie.",
+    heuristics:"Našiel sa proces, ktorý sa tvári ako systémový od Apple, ale ním nie je (alebo má veľmi nezvyčajný názov). To je presne trik, ktorý používa skrytý malvér."
+  };
+
   html+=`<div class="sechead">Dôkazy · ${order.length} modulov</div>`;
   for(const key of order){
     const m=meta[key], res=R[key]||{};
@@ -845,7 +880,9 @@ function render(R, fileCount){
     else if(revs){stat=`${revs} kontrola`;statCls="s-rev";}
     else{stat="čisté";statCls="s-ok";}
 
-    let body=`<p class="desc">${m.desc}</p>`;
+    let body="";
+    if((hits||revs)&&human[key]) body+=`<div class="human"><b>Po ľudsky:</b> ${human[key]}</div>`;
+    body+=`<p class="desc">${m.desc}</p>`;
     if(res.nodata){
       body+=`<div style="color:var(--faint);font-size:12px">Tento typ dát nebol v nahranom zázname. Pre kompletnú analýzu nahraj plný sysdiagnose archív.</div>`;
     } else if(key==="timeline"){
@@ -954,6 +991,33 @@ $("#drop").addEventListener("drop",e=>{ if(e.dataTransfer.files.length) handleFi
 const pasteEl=$("#paste"), goPaste=$("#goPaste");
 pasteEl.addEventListener("input",()=>{ goPaste.disabled=pasteEl.value.trim().length<10; });
 goPaste.addEventListener("click",()=>{ readIOCs(); run([["pasted-input.log",pasteEl.value]]); });
+
+/* ════════════════ demo / sample mode ════════════════
+   Synthetic artifacts that exercise several engines so a first-time user can
+   see exactly what a result looks like — clearly flagged as fake data. */
+function demoFiles(){
+  return [
+    ["sysdiagnose/logs/shutdown.log",
+      "After 30 seconds, /System/Library/CoreServices/SpringBoard remaining\n"+
+      "After 30 seconds, /private/var/db/com.apple.xpc.roleaccountd.staging/roleaboutd remaining\n".repeat(4)+
+      "After 30 seconds, /usr/libexec/runningboardd remaining\n"],
+    ["sysdiagnose/crashes_and_spins/stagingd-2026-06-21-001.ips",
+      '{"name":"stagingd","timestamp":"2026-06-21 03:14:07","app_name":"stagingd"}\n'.repeat(3)],
+    ["sysdiagnose/ps.txt",
+      "501  Instagram  /private/var/containers/Bundle/Application/AAA/Instagram.app/Instagram\n"+
+      "0    assistlantd /private/var/tmp/assistlantd\n"+
+      "0    locatlond  /private/var/db/locatlond\n"+   // impostor: 1 char off "locationd"
+      "0    locationd  /usr/libexec/locationd\n"],
+    ["sysdiagnose/profiles/configurationprofiles.plist",
+      "<key>PayloadType</key><string>com.bigbrother.mdm.RemoteManagement</string>"],
+    ["sysdiagnose/logs/appstored.log",
+      "connect to a1b2c9zxq8w7tracker.xyz failed; retry to cdn.apple.com ok; ping 93.184.216.34\n"+
+      "beacon to a1b2c9zxq8w7tracker.xyz every 60s\n"],
+    ["sysdiagnose/logs/install.log","package Cydia installed; /Library/MobileSubstrate present"]
+  ];
+}
+$("#demoBtn").addEventListener("click",()=>{ window.__demo=true; readIOCs(); run(demoFiles()); });
+
 
 /* ════════════════ tab switching ════════════════ */
 const VIEWS={sys:"#view-sys",behav:"#view-behav",net:"#view-net"};
