@@ -146,10 +146,23 @@ def stahni_skladbu(kapela, video_id, title):
             '--audio-format', 'mp3',
             '--audio-quality', f'{KVALITA}K',
             '-o', output_template,
+            '--continue-dl',  # Pokračuj ak je prerusene
             f'https://www.youtube.com/watch?v={video_id}'
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+        # Overenie: existuje súbor a má väčšinu ako 1MB
+        mp3_files = list(kapela_dir.glob("*.mp3"))
+        if result.returncode == 0 and mp3_files:
+            latest = max(mp3_files, key=lambda p: p.stat().st_mtime)
+            size_mb = latest.stat().st_size / (1024*1024)
+            if size_mb >= 1:  # Aspoň 1MB = OK kvalita
+                return True
+            else:
+                latest.unlink()  # Vymaž ak je príliš malé
+                return False
+
         return result.returncode == 0
 
     except Exception as e:
